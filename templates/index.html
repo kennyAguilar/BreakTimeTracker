@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BreakTime Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+  <header class="flex justify-between items-center px-8 py-4 bg-gray-800 shadow">
+    <div>
+      <h1 class="text-2xl font-bold">BreakTime Tracker</h1>
+      <p class="text-sm text-gray-300">Control de descansos y comidas</p>
+    </div>
+    <nav class="space-x-2">
+      <a href="/" class="bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded">Inicio</a>
+      <a href="login" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Base de Datos</a>
+      <a href="registros" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded">Registros</a>
+    </nav>
+  </header>
+
+  <main class="flex flex-col items-center mt-10">
+    <section class="bg-gray-800 p-6 rounded-lg w-2/3 mb-6">
+      <h2 class="text-xl font-bold mb-4">Lector de Tarjetas</h2>
+      <div class="border border-dashed border-gray-500 p-8 text-center mb-4 rounded">
+        <p class="text-gray-300 mb-4">Deslice la tarjeta (Numero de Rojo)</p>
+        <input type="text" placeholder="Esperando tarjeta..." class="w-full p-2 rounded bg-gray-100 text-black text-center" />
+      </div>
+    </section>
+
+    <section class="bg-gray-800 p-6 rounded-lg w-2/3">
+      <h2 class="text-xl font-bold mb-2">Personal en Turno y Descansos</h2>
+      <table class="table-auto w-full text-left mt-4">
+        <thead>
+          <tr class="text-gray-300 border-b border-gray-600">
+            <th class="pb-2">Nombre</th>
+            <th class="pb-2">Hora de Ingreso</th>
+            <th class="pb-2">Descanso</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="text-gray-100">
+            <td>Ejemplo Apellido</td>
+            <td>10:32</td>
+            <td>Comida</td>
+          </tr>
+          <tr class="text-gray-100">
+            <td>Otro Trabajador</td>
+            <td>11:15</td>
+            <td>Descanso 20'</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
