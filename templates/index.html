@@ -14,18 +14,26 @@
     </div>
     <nav class="space-x-2">
       <a href="/" class="bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded">Inicio</a>
-      <a href="login" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Base de Datos</a>
-      <a href="registros" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded">Registros</a>
+      <a href="/login" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Base de Datos</a>
+      <a href="/registros" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded">Registros</a>
     </nav>
   </header>
 
   <main class="flex flex-col items-center mt-10">
     <section class="bg-gray-800 p-6 rounded-lg w-2/3 mb-6">
       <h2 class="text-xl font-bold mb-4">Lector de Tarjetas</h2>
-      <div class="border border-dashed border-gray-500 p-8 text-center mb-4 rounded">
-        <p class="text-gray-300 mb-4">Deslice la tarjeta (Numero de Rojo)</p>
-        <input type="text" placeholder="Esperando tarjeta..." class="w-full p-2 rounded bg-gray-100 text-black text-center" />
-      </div>
+      <form method="POST">
+        <div class="border border-dashed border-gray-500 p-8 text-center mb-4 rounded">
+          <p class="text-gray-300 mb-4">Deslice la tarjeta (Numero de Rojo)</p>
+          <input 
+            type="text" 
+            name="tarjeta" 
+            placeholder="Esperando tarjeta..." 
+            class="w-full p-2 rounded bg-gray-100 text-black text-center" 
+            autofocus 
+          />
+        </div>
+      </form>
     </section>
 
     <section class="bg-gray-800 p-6 rounded-lg w-2/3">
@@ -39,16 +47,13 @@
           </tr>
         </thead>
         <tbody>
+          {% for persona in descansos %}
           <tr class="text-gray-100">
-            <td>Ejemplo Apellido</td>
-            <td>10:32</td>
-            <td>Comida</td>
+            <td>{{ persona.nombre }}</td>
+            <td>{{ persona.inicio[11:16] }}</td>
+            <td>{{ 'Comida' if persona.tipo == 'Comida' else 'Descanso 20\'' }}</td>
           </tr>
-          <tr class="text-gray-100">
-            <td>Otro Trabajador</td>
-            <td>11:15</td>
-            <td>Descanso 20'</td>
-          </tr>
+          {% endfor %}
         </tbody>
       </table>
     </section>

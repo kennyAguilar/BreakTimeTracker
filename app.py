@@ -17,12 +17,12 @@ def get_db():
 def index():
     conn = get_db()
     if request.method == 'POST':
-        tarjeta = request.form.get('tarjeta')
+        tarjeta_raw = request.form.get('tarjeta')
+        tarjeta = tarjeta_raw.strip().replace(';', '').replace('?', '')
         usuario = conn.execute('SELECT * FROM usuarios WHERE tarjeta = ?', (tarjeta,)).fetchone()
 
         if usuario:
             usuario_id = usuario['id']
-            tipo = 'Comida' if usuario['turno'] == 'Full' else 'Descanso'
 
             descanso_activo = conn.execute('''
                 SELECT * FROM descansos WHERE usuario_id = ?
@@ -37,18 +37,28 @@ def index():
                 inicio = datetime.strptime(descanso_activo['inicio'], '%Y-%m-%d %H:%M:%S')
                 duracion = int((ahora - inicio).total_seconds() / 60)
 
+                # Verificar si ya tuvo un descanso de 40 este día
+                tipo_descanso = 'Descanso'
+                ya_tuvo_40 = conn.execute('''
+                    SELECT 1 FROM tiempos_descanso
+                    WHERE usuario_id = ? AND fecha = ? AND tipo = 'Comida'
+                ''', (usuario_id, fecha_actual)).fetchone()
+
+                if duracion >= 30 and not ya_tuvo_40:
+                    tipo_descanso = 'Comida'
+
                 conn.execute('''
                     INSERT INTO tiempos_descanso (usuario_id, tipo, fecha, inicio, fin, duracion_minutos)
                     VALUES (?, ?, ?, ?, ?, ?)
-                ''', (usuario_id, descanso_activo['tipo'], fecha_actual, inicio.strftime('%H:%M:%S'), hora_actual, duracion))
+                ''', (usuario_id, tipo_descanso, fecha_actual, inicio.strftime('%H:%M:%S'), hora_actual, duracion))
 
                 conn.execute('DELETE FROM descansos WHERE id = ?', (descanso_activo['id'],))
             else:
-                # Iniciar descanso
+                # Iniciar descanso (el tipo se decide al finalizar)
                 conn.execute('''
                     INSERT INTO descansos (usuario_id, tipo, inicio)
                     VALUES (?, ?, ?)
-                ''', (usuario_id, tipo, ahora.strftime('%Y-%m-%d %H:%M:%S')))
+                ''', (usuario_id, 'Pendiente', ahora.strftime('%Y-%m-%d %H:%M:%S')))
 
             conn.commit()
         return redirect(url_for('index'))
@@ -114,7 +124,6 @@ def registros():
 @app.route('/logout')
 def logout():
     session.pop('usuario', None)
-    #return redirect(url_for('login'))
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
