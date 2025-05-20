@@ -50,7 +50,7 @@
           {% for persona in descansos %}
           <tr class="text-gray-100">
             <td>{{ persona.nombre }}</td>
-            <td>{{ persona.inicio[11:16] }}</td>
+            <td>{{ persona.inicio.strftime('%H:%M') if persona.inicio else '' }}</td>
             <td>{{ 'Comida' if persona.tipo == 'Comida' else 'Descanso 20\'' }}</td>
           </tr>
           {% endfor %}
