@@ -38,10 +38,38 @@
             <td>{{ r.nombre }}</td>
             <td>{{ r.codigo }}</td>
             <td>{{ r.tipo }}</td>
-            <td>{{ r.fecha }}</td>
-            <td>{{ r.inicio }}</td>
-            <td>{{ r.fin }}</td>
+            <td>{{ r.fecha.strftime('%Y-%m-%d') if r.fecha else '' }}</td>
+            <td>{{ r.inicio.strftime('%H:%M') if r.inicio else '' }}</td>
+            <td>{{ r.fin.strftime('%H:%M') if r.fin else '' }}</td>
             <td>{{ r.duracion_minutos }}</td>
+          </tr>
+          {% endfor %}
+
+          {% if historial|length == 0 %}
+          <tr>
+            <td colspan="7" class="text-center text-gray-400 py-4">No hay registros aún.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="bg-gray-800 p-6 rounded-lg max-w-4xl mx-auto mt-10">
+      <h2 class="text-xl font-bold mb-4">Personal en Turno y Descansos</h2>
+      <table class="table-auto w-full text-left mt-4">
+        <thead>
+          <tr class="text-gray-300 border-b border-gray-600">
+            <th class="pb-2">Nombre</th>
+            <th class="pb-2">Hora de Ingreso</th>
+            <th class="pb-2">Descanso</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for persona in descansos %}
+          <tr class="text-gray-100">
+            <td>{{ persona.nombre }}</td>
+            <td>{{ persona.inicio.strftime('%H:%M') if persona.inicio else '' }}</td>
+            <td>{{ 'Comida' if persona.tipo == 'Comida' else 'Descanso 20\'' }}</td>
           </tr>
           {% endfor %}
         </tbody>
