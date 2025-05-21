@@ -72,7 +72,9 @@ def index():
         return redirect(url_for('index'))
 
     cur.execute('''
-        SELECT u.nombre, d.tipo, d.inicio FROM descansos d
+        SELECT u.nombre, d.tipo, d.inicio, 
+        EXTRACT(EPOCH FROM (NOW() - d.inicio)) / 60 AS minutos_transcurridos
+        FROM descansos d
         JOIN usuarios u ON u.id = d.usuario_id
         ORDER BY d.inicio DESC
     ''')

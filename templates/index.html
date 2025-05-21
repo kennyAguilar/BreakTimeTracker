@@ -5,6 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BreakTime Tracker</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script>
+    // Limpiar automáticamente el input después de enviar
+    document.addEventListener('DOMContentLoaded', function () {
+      const form = document.querySelector('form');
+      const input = document.querySelector('input[name="tarjeta"]');
+      if (form && input) {
+        form.addEventListener('submit', function () {
+          setTimeout(() => {
+            input.value = '';
+          }, 300);
+        });
+      }
+
+      // Actualizar los tiempos restantes cada 60 segundos
+      const tiempoElements = document.querySelectorAll('[data-minutos]');
+      setInterval(() => {
+        tiempoElements.forEach(el => {
+          let minutos = parseFloat(el.dataset.minutos);
+          minutos += 1;
+          el.dataset.minutos = minutos;
+
+          if (minutos > 35) {
+            el.innerText = `${(40 - minutos).toFixed(1)} min`;
+          } else if (minutos > 20) {
+            el.innerText = `+${(minutos - 20).toFixed(1)} min`;
+          } else {
+            el.innerText = `${(20 - minutos).toFixed(1)} min`;
+          }
+        });
+      }, 60000);
+    });
+  </script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
   <header class="flex justify-between items-center px-8 py-4 bg-gray-800 shadow">
@@ -44,6 +76,7 @@
             <th class="pb-2">Nombre</th>
             <th class="pb-2">Hora de Ingreso</th>
             <th class="pb-2">Descanso</th>
+            <th class="pb-2">Tiempo Restante</th>
           </tr>
         </thead>
         <tbody>
@@ -51,7 +84,23 @@
           <tr class="text-gray-100">
             <td>{{ persona.nombre }}</td>
             <td>{{ persona.inicio.strftime('%H:%M') if persona.inicio else '' }}</td>
-            <td>{{ 'Comida' if persona.tipo == 'Comida' else 'Descanso 20\'' }}</td>
+            <td>
+              {% if persona.minutos_transcurridos > 35 %}
+                Comida 40'
+              {% else %}
+                Descanso 20'
+              {% endif %}
+            </td>
+            <td data-minutos="{{ persona.minutos_transcurridos }}">
+              {% set restante = 20 - persona.minutos_transcurridos %}
+              {% if restante >= 0 %}
+                {{ restante|round(1) }} min
+              {% elif persona.minutos_transcurridos <= 35 %}
+                +{{ (-restante)|round(1) }} min
+              {% else %}
+                {{ (40 - persona.minutos_transcurridos)|round(1) }} min
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>
