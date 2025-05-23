@@ -18,20 +18,24 @@
         });
       }
 
-      // Actualizar los tiempos restantes cada 60 segundos
-      const tiempoElements = document.querySelectorAll('[data-minutos]');
+      // Actualizar los tiempos restantes cada 60 segundos en base a hora de inicio real
+      const tiempoElements = document.querySelectorAll('[data-inicio][data-tipo]');
       setInterval(() => {
-        tiempoElements.forEach(el => {
-          let minutos = parseFloat(el.dataset.minutos);
-          minutos += 1;
-          el.dataset.minutos = minutos;
+        const ahora = new Date();
 
-          if (minutos > 35) {
-            el.innerText = `${(40 - minutos).toFixed(1)} min`;
-          } else if (minutos > 20) {
-            el.innerText = `+${(minutos - 20).toFixed(1)} min`;
+        tiempoElements.forEach(el => {
+          const inicioStr = el.dataset.inicio;
+          const tipo = el.dataset.tipo;
+          const inicio = new Date(inicioStr);
+
+          const transcurrido = (ahora - inicio) / 60000; // en minutos
+          const limite = tipo === 'Comida' ? 40 : 20;
+          const restante = limite - transcurrido;
+
+          if (restante >= 0) {
+            el.innerText = `${restante.toFixed(1)} min`;
           } else {
-            el.innerText = `${(20 - minutos).toFixed(1)} min`;
+            el.innerText = `+${Math.abs(restante).toFixed(1)} min`;
           }
         });
       }, 60000);
@@ -85,21 +89,14 @@
             <td>{{ persona.nombre }}</td>
             <td>{{ persona.inicio.strftime('%H:%M') if persona.inicio else '' }}</td>
             <td>
-              {% if persona.minutos_transcurridos > 35 %}
-                Comida 40'
-              {% else %}
+              {% if persona.tiempo_restante <= 20 %}
                 Descanso 20'
+              {% else %}
+                Comida 40'
               {% endif %}
             </td>
-            <td data-minutos="{{ persona.minutos_transcurridos }}">
-              {% set restante = 20 - persona.minutos_transcurridos %}
-              {% if restante >= 0 %}
-                {{ restante|round(1) }} min
-              {% elif persona.minutos_transcurridos <= 35 %}
-                +{{ (-restante)|round(1) }} min
-              {% else %}
-                {{ (40 - persona.minutos_transcurridos)|round(1) }} min
-              {% endif %}
+            <td data-inicio="{{ persona.inicio.isoformat() }}" data-tipo="{{ 'Comida' if persona.tiempo_restante > 20 else 'Descanso' }}">
+              {{ persona.tiempo_restante|round(1) }} min
             </td>
           </tr>
           {% endfor %}

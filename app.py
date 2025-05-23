@@ -72,12 +72,19 @@ def index():
         return redirect(url_for('index'))
 
     cur.execute('''
-        SELECT u.nombre, d.tipo, d.inicio, 
-        EXTRACT(EPOCH FROM (NOW() - d.inicio)) / 60 AS minutos_transcurridos
-        FROM descansos d
-        JOIN usuarios u ON u.id = d.usuario_id
-        ORDER BY d.inicio DESC
-    ''')
+    SELECT 
+        u.nombre, 
+        d.tipo, 
+        d.inicio, 
+        CASE 
+            WHEN d.tipo = 'Comida' THEN ROUND(GREATEST(40 - EXTRACT(EPOCH FROM (NOW() - d.inicio)) / 60, 0), 1)
+            ELSE ROUND(GREATEST(20 - EXTRACT(EPOCH FROM (NOW() - d.inicio)) / 60, 0), 1)
+        END AS tiempo_restante
+    FROM descansos d
+    JOIN usuarios u ON u.id = d.usuario_id
+    ORDER BY d.inicio DESC
+''')
+
     activos = cur.fetchall()
     cur.close()
     conn.close()
