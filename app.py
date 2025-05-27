@@ -600,8 +600,4 @@ def internal_error(error):
 
 # INICIAR LA APLICACIÓN - Como encender el sistema
 if __name__ == '__main__':
-    """
-    Esto es como presionar el botón de 'encender' de todo el sistema.
-    debug=True significa que si algo sale mal, nos dirá exactamente qué fue.
-    """
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True)
