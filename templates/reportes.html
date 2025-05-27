@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reportes - BreakTime Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+  <!-- HEADER -->
+  <header class="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-800 shadow">
+    <div class="mb-4 sm:mb-0 text-center sm:text-left">
+      <h1 class="text-xl sm:text-2xl font-bold">📊 Dashboard y Reportes</h1>
+      <p class="text-xs sm:text-sm text-gray-300">Estadísticas y análisis de descansos</p>
+    </div>
+    <nav class="flex flex-wrap justify-center gap-2">
+      <a href="/" class="bg-gray-700 hover:bg-gray-600 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Inicio</a>
+      <a href="/base_datos" class="bg-blue-600 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Base de Datos</a>
+      <a href="/registros" class="bg-purple-600 hover:bg-purple-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Registros</a>
+      <a href="/logout" class="bg-red-600 hover:bg-red-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Salir</a>
+    </nav>
+  </header>
+
+  <main class="container mx-auto px-4 py-8">
+    
+    <!-- ESTADÍSTICAS DE HOY -->
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+      <div class="bg-gradient-to-r from-blue-600 to-blue-800 p-6 rounded-lg text-center">
+        <h3 class="text-lg font-bold mb-2">🗓️ Hoy</h3>
+        <p class="text-3xl font-bold">{{ stats_hoy.total_descansos or 0 }}</p>
+        <p class="text-sm opacity-80">Total Descansos</p>
+      </div>
+      
+      <div class="bg-gradient-to-r from-green-600 to-green-800 p-6 rounded-lg text-center">
+        <h3 class="text-lg font-bold mb-2">🕐 Minutos</h3>
+        <p class="text-3xl font-bold">{{ stats_hoy.total_minutos or 0 }}</p>
+        <p class="text-sm opacity-80">Total Hoy</p>
+      </div>
+      
+      <div class="bg-gradient-to-r from-orange-600 to-orange-800 p-6 rounded-lg text-center">
+        <h3 class="text-lg font-bold mb-2">🍽️ Comidas</h3>
+        <p class="text-3xl font-bold">{{ stats_hoy.comidas or 0 }}</p>
+        <p class="text-sm opacity-80">Registradas Hoy</p>
+      </div>
+      
+      <div class="bg-gradient-to-r from-purple-600 to-purple-800 p-6 rounded-lg text-center">
+        <h3 class="text-lg font-bold mb-2">☕ Descansos</h3>
+        <p class="text-3xl font-bold">{{ stats_hoy.descansos_cortos or 0 }}</p>
+        <p class="text-sm opacity-80">Cortos Hoy</p>
+      </div>
+      
+      <div class="bg-gradient-to-r from-yellow-600 to-yellow-800 p-6 rounded-lg text-center">
+        <h3 class="text-lg font-bold mb-2">⏱️ Promedio</h3>
+        <p class="text-3xl font-bold">{{ "%.0f"|format(stats_hoy.promedio_minutos or 0) }}</p>
+        <p class="text-sm opacity-80">Min por Descanso</p>
+      </div>
+    </section>
+
+    <!-- QUIEN ESTÁ EN DESCANSO AHORA -->
+    {% if activos_ahora %}
+    <section class="bg-gray-800 p-6 rounded-lg mb-8">
+      <h2 class="text-lg font-bold mb-4">🚶 Personal en Descanso Actualmente</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for activo in activos_ahora %}
+        <div class="bg-gray-700 p-4 rounded-lg">
+          <h3 class="font-bold">{{ activo.nombre }}</h3>
+          <p class="text-sm text-gray-300">Código: {{ activo.codigo }}</p>
+          <p class="text-sm">
+            <span class="{% if activo.tipo == 'Comida' %}bg-orange-600{% else %}bg-blue-600{% endif %} px-2 py-1 rounded text-xs">
+              {{ activo.tipo }}
+            </span>
+          </p>
+          <p class="text-sm text-yellow-400 mt-2">
+            ⏰ {{ "%.0f"|format(activo.minutos_transcurridos) }} minutos transcurridos
+          </p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <!-- ESTADÍSTICAS DE LA SEMANA -->
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+      <!-- STATS SEMANA -->
+      <div class="bg-gray-800 p-6 rounded-lg">
+        <h2 class="text-lg font-bold mb-4">📅 Estadísticas de la Semana</h2>
+        <div class="space-y-4">
+          <div class="flex justify-between">
+            <span>Total Descansos:</span>
+            <span class="font-bold text-blue-400">{{ stats_semana.total_descansos or 0 }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Total Minutos:</span>
+            <span class="font-bold text-green-400">{{ stats_semana.total_minutos or 0 }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Total Horas:</span>
+            <span class="font-bold text-yellow-400">{{ "%.1f"|format((stats_semana.total_minutos or 0) / 60) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Promedio:</span>
+            <span class="font-bold text-purple-400">{{ "%.0f"|format(stats_semana.promedio_minutos or 0) }} min</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP USUARIOS -->
+      <div class="bg-gray-800 p-6 rounded-lg">
+        <h2 class="text-lg font-bold mb-4">🏆 Top Usuarios (Esta Semana)</h2>
+        {% if top_usuarios %}
+        <div class="space-y-2">
+          {% for usuario in top_usuarios[:5] %}
+          <div class="flex justify-between items-center p-2 bg-gray-700 rounded">
+            <div>
+              <span class="font-medium">{{ usuario.nombre }}</span>
+              <span class="text-sm text-gray-400">({{ usuario.codigo }})</span>
+            </div>
+            <div class="text-right">
+              <p class="text-sm font-bold">{{ usuario.total_descansos }} descansos</p>
+              <p class="text-xs text-gray-400">{{ usuario.total_minutos }} min</p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-400">No hay datos disponibles</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- DESCANSOS POR DÍA -->
+    <section class="bg-gray-800 p-6 rounded-lg">
+      <h2 class="text-lg font-bold mb-4">📈 Descansos por Día (Últimos 7 días)</h2>
+      {% if descansos_por_dia %}
+      <div class="overflow-x-auto">
+        <table class="table-auto w-full text-left">
+          <thead>
+            <tr class="text-gray-300 border-b border-gray-600">
+              <th class="pb-2 px-2">Fecha</th>
+              <th class="pb-2 px-2">Cantidad</th>
+              <th class="pb-2 px-2">Total Minutos</th>
+              <th class="pb-2 px-2">Total Horas</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for dia in descansos_por_dia %}
+            <tr class="text-gray-100 border-b border-gray-700">
+              <td class="px-2 py-2">{{ dia.fecha.strftime('%Y-%m-%d') }}</td>
+              <td class="px-2 py-2 font-bold text-blue-400">{{ dia.cantidad }}</td>
+              <td class="px-2 py-2">{{ dia.minutos_total }}</td>
+              <td class="px-2 py-2">{{ "%.1f"|format(dia.minutos_total / 60) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-gray-400">No hay datos disponibles para los últimos 7 días</p>
+      {% endif %}
+    </section>
+
+  </main>
+
+  <footer class="mt-8 py-4 text-center text-gray-400 text-sm">
+    <p>&copy; 2005 BreakTime Tracker - Sistema de control de descansos</p>
+  </footer>
+</body>
+</html>

@@ -1,18 +1,20 @@
 # IMPORTACIONES - Como traer herramientas que necesitamos
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, make_response
 # Flask es como el motor de nuestro sitio web
 # render_template = mostrar páginas web
 # request = recibir información del usuario
 # redirect = enviar al usuario a otra página
 # session = recordar quien está conectado
-# flash = eliminado - ya no se usa
+# make_response = para crear respuestas personalizadas (como CSV)
 
-from datetime import datetime  # Para trabajar con fechas y horas
+from datetime import datetime, timedelta  # Para trabajar con fechas y horas
 import psycopg2  # Para conectarse a la base de datos PostgreSQL
 import psycopg2.extras  # Herramientas extra para la base de datos
 import os  # Para acceder a configuraciones del sistema
 from dotenv import load_dotenv  # Para leer configuraciones secretas
 import logging  # Para guardar registros de lo que pasa en la app
+import csv  # Para crear archivos CSV
+from io import StringIO  # Para manejar texto en memoria
 
 # CONFIGURACIÓN INICIAL - Como preparar todo antes de empezar
 logging.basicConfig(level=logging.INFO)  # Activar el sistema de registros
@@ -266,15 +268,15 @@ def base_datos():
         if conn:
             conn.close()
 
-# PÁGINA DE REGISTROS - Sin flash()
+# PÁGINA DE REGISTROS MEJORADA - Con filtros y exportación
 @app.route('/registros')
 def registros():
     """
     Como revisar un libro de historial donde se ve todo lo que ha pasado.
     Quién tomó descansos, cuándo y por cuánto tiempo.
+    Ahora con filtros por fecha, usuario y tipo.
     """
     if 'usuario' not in session:
-        # Sin flash - solo redireccionar
         return redirect(url_for('login', next='registros'))
 
     conn = None
@@ -282,20 +284,293 @@ def registros():
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        cur.execute('''
+        # OBTENER PARÁMETROS DE FILTRO
+        fecha_inicio = request.args.get('fecha_inicio', '')
+        fecha_fin = request.args.get('fecha_fin', '')
+        usuario_filtro = request.args.get('usuario', '')
+        tipo_filtro = request.args.get('tipo', '')
+        
+        # CONSTRUIR CONSULTA DINÁMICA CON FILTROS
+        consulta_base = '''
             SELECT u.nombre, u.codigo, t.tipo, t.fecha, t.inicio, t.fin, t.duracion_minutos
             FROM tiempos_descanso t
             JOIN usuarios u ON u.id = t.usuario_id
-            ORDER BY t.fecha DESC, t.inicio DESC
-            LIMIT 100
-        ''')
+        '''
+        
+        condiciones = []
+        parametros = []
+        
+        # FILTRO POR FECHA INICIO
+        if fecha_inicio:
+            condiciones.append("t.fecha >= %s")
+            parametros.append(fecha_inicio)
+        
+        # FILTRO POR FECHA FIN
+        if fecha_fin:
+            condiciones.append("t.fecha <= %s")
+            parametros.append(fecha_fin)
+            
+        # FILTRO POR USUARIO
+        if usuario_filtro:
+            condiciones.append("LOWER(u.nombre) LIKE LOWER(%s)")
+            parametros.append(f'%{usuario_filtro}%')
+            
+        # FILTRO POR TIPO
+        if tipo_filtro:
+            condiciones.append("t.tipo = %s")
+            parametros.append(tipo_filtro)
+        
+        # AGREGAR CONDICIONES A LA CONSULTA
+        if condiciones:
+            consulta_base += " WHERE " + " AND ".join(condiciones)
+            
+        consulta_base += " ORDER BY t.fecha DESC, t.inicio DESC LIMIT 500"
+        
+        cur.execute(consulta_base, parametros)
         historial = cur.fetchall()
-        return render_template('registros.html', historial=historial)
+        
+        # OBTENER LISTA DE USUARIOS PARA EL FILTRO
+        cur.execute('SELECT DISTINCT nombre FROM usuarios ORDER BY nombre')
+        usuarios_disponibles = cur.fetchall()
+        
+        # CALCULAR ESTADÍSTICAS
+        if historial:
+            total_registros = len(historial)
+            total_minutos = sum(r['duracion_minutos'] for r in historial)
+            total_horas = round(total_minutos / 60, 2)
+            promedio_minutos = round(total_minutos / total_registros, 1)
+        else:
+            total_registros = total_minutos = total_horas = promedio_minutos = 0
+        
+        estadisticas = {
+            'total_registros': total_registros,
+            'total_minutos': total_minutos,
+            'total_horas': total_horas,
+            'promedio_minutos': promedio_minutos
+        }
+        
+        return render_template('registros.html', 
+                             historial=historial,
+                             usuarios_disponibles=usuarios_disponibles,
+                             estadisticas=estadisticas,
+                             filtros={
+                                 'fecha_inicio': fecha_inicio,
+                                 'fecha_fin': fecha_fin,
+                                 'usuario': usuario_filtro,
+                                 'tipo': tipo_filtro
+                             })
         
     except Exception as e:
         logger.error(f"Error en registros: {e}")
-        # Sin flash - solo retornar página vacía
-        return render_template('registros.html', historial=[])
+        return render_template('registros.html', historial=[], usuarios_disponibles=[], 
+                             estadisticas={}, filtros={})
+    finally:
+        if conn:
+            conn.close()
+
+# NUEVA RUTA PARA EXPORTAR CSV
+@app.route('/exportar_csv')
+def exportar_csv():
+    """
+    Exportar registros filtrados a archivo CSV
+    Como imprimir un reporte en Excel
+    """
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # OBTENER LOS MISMOS FILTROS QUE EN REGISTROS
+        fecha_inicio = request.args.get('fecha_inicio', '')
+        fecha_fin = request.args.get('fecha_fin', '')
+        usuario_filtro = request.args.get('usuario', '')
+        tipo_filtro = request.args.get('tipo', '')
+        
+        # USAR LA MISMA LÓGICA DE FILTROS
+        consulta_base = '''
+            SELECT u.nombre, u.codigo, t.tipo, t.fecha, t.inicio, t.fin, t.duracion_minutos
+            FROM tiempos_descanso t
+            JOIN usuarios u ON u.id = t.usuario_id
+        '''
+        
+        condiciones = []
+        parametros = []
+        
+        if fecha_inicio:
+            condiciones.append("t.fecha >= %s")
+            parametros.append(fecha_inicio)
+        
+        if fecha_fin:
+            condiciones.append("t.fecha <= %s")
+            parametros.append(fecha_fin)
+            
+        if usuario_filtro:
+            condiciones.append("LOWER(u.nombre) LIKE LOWER(%s)")
+            parametros.append(f'%{usuario_filtro}%')
+            
+        if tipo_filtro:
+            condiciones.append("t.tipo = %s")
+            parametros.append(tipo_filtro)
+        
+        if condiciones:
+            consulta_base += " WHERE " + " AND ".join(condiciones)
+            
+        consulta_base += " ORDER BY t.fecha DESC, t.inicio DESC"
+        
+        cur.execute(consulta_base, parametros)
+        datos = cur.fetchall()
+        
+        # CREAR ARCHIVO CSV EN MEMORIA
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # ESCRIBIR ENCABEZADOS
+        writer.writerow([
+            'Nombre',
+            'Código',
+            'Tipo Descanso',
+            'Fecha',
+            'Hora Inicio',
+            'Hora Fin',
+            'Duración (minutos)',
+            'Duración (horas)'
+        ])
+        
+        # ESCRIBIR DATOS
+        for registro in datos:
+            duracion_horas = round(registro['duracion_minutos'] / 60, 2)
+            writer.writerow([
+                registro['nombre'],
+                registro['codigo'],
+                registro['tipo'],
+                registro['fecha'].strftime('%Y-%m-%d'),
+                registro['inicio'].strftime('%H:%M'),
+                registro['fin'].strftime('%H:%M'),
+                registro['duracion_minutos'],
+                duracion_horas
+            ])
+        
+        # CREAR RESPUESTA HTTP CON EL CSV
+        output.seek(0)
+        fecha_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
+        nombre_archivo = f'registros_descansos_{fecha_actual}.csv'
+        
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+        response.headers['Content-Disposition'] = f'attachment; filename={nombre_archivo}'
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error exportando CSV: {e}")
+        return redirect(url_for('registros'))
+    finally:
+        if conn:
+            conn.close()
+
+# NUEVA RUTA PARA REPORTES/DASHBOARD
+@app.route('/reportes')
+def reportes():
+    """
+    Página de reportes y estadísticas
+    Como un dashboard con gráficos y números importantes
+    """
+    if 'usuario' not in session:
+        return redirect(url_for('login', next='reportes'))
+
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # ESTADÍSTICAS DE HOY
+        hoy = datetime.now().date()
+        cur.execute('''
+            SELECT 
+                COUNT(*) as total_descansos,
+                SUM(duracion_minutos) as total_minutos,
+                AVG(duracion_minutos) as promedio_minutos,
+                COUNT(CASE WHEN tipo = 'Comida' THEN 1 END) as comidas,
+                COUNT(CASE WHEN tipo = 'Descanso' THEN 1 END) as descansos_cortos
+            FROM tiempos_descanso 
+            WHERE fecha = %s
+        ''', (hoy,))
+        
+        stats_hoy = cur.fetchone()
+        
+        # ESTADÍSTICAS DE LA SEMANA
+        inicio_semana = hoy - timedelta(days=hoy.weekday())
+        cur.execute('''
+            SELECT 
+                COUNT(*) as total_descansos,
+                SUM(duracion_minutos) as total_minutos,
+                AVG(duracion_minutos) as promedio_minutos
+            FROM tiempos_descanso 
+            WHERE fecha >= %s
+        ''', (inicio_semana,))
+        
+        stats_semana = cur.fetchone()
+        
+        # TOP USUARIOS (más descansos esta semana)
+        cur.execute('''
+            SELECT 
+                u.nombre,
+                u.codigo,
+                COUNT(*) as total_descansos,
+                SUM(t.duracion_minutos) as total_minutos
+            FROM tiempos_descanso t
+            JOIN usuarios u ON u.id = t.usuario_id
+            WHERE t.fecha >= %s
+            GROUP BY u.id, u.nombre, u.codigo
+            ORDER BY total_descansos DESC
+            LIMIT 10
+        ''', (inicio_semana,))
+        
+        top_usuarios = cur.fetchall()
+        
+        # DESCANSOS POR DÍA (últimos 7 días)
+        cur.execute('''
+            SELECT 
+                fecha,
+                COUNT(*) as cantidad,
+                SUM(duracion_minutos) as minutos_total
+            FROM tiempos_descanso 
+            WHERE fecha >= %s
+            GROUP BY fecha
+            ORDER BY fecha DESC
+        ''', (hoy - timedelta(days=6),))
+        
+        descansos_por_dia = cur.fetchall()
+        
+        # QUIEN ESTÁ EN DESCANSO AHORA
+        cur.execute('''
+            SELECT 
+                u.nombre,
+                u.codigo,
+                d.tipo,
+                d.inicio,
+                EXTRACT(EPOCH FROM (NOW() - d.inicio)) / 60 as minutos_transcurridos
+            FROM descansos d
+            JOIN usuarios u ON u.id = d.usuario_id
+            ORDER BY d.inicio DESC
+        ''')
+        
+        activos_ahora = cur.fetchall()
+        
+        return render_template('reportes.html',
+                             stats_hoy=stats_hoy,
+                             stats_semana=stats_semana,
+                             top_usuarios=top_usuarios,
+                             descansos_por_dia=descansos_por_dia,
+                             activos_ahora=activos_ahora,
+                             fecha_hoy=hoy.strftime('%Y-%m-%d'))
+        
+    except Exception as e:
+        logger.error(f"Error en reportes: {e}")
+        return render_template('reportes.html')
     finally:
         if conn:
             conn.close()

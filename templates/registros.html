@@ -5,76 +5,168 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registros - BreakTime Tracker</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
 </head>
-<body class="bg-gray-900 text-white min-h-screen flex flex-col">
-  <header class="flex justify-between items-center px-8 py-4 bg-gray-800 shadow">
-    <div>
-      <h1 class="text-2xl font-bold">BreakTime Tracker</h1>
-      <p class="text-sm text-gray-300">Historial de descansos</p>
+<body class="bg-gray-900 text-white min-h-screen">
+  <!-- HEADER -->
+  <header class="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-800 shadow">
+    <div class="mb-4 sm:mb-0 text-center sm:text-left">
+      <h1 class="text-xl sm:text-2xl font-bold">Registros de Descansos</h1>
+      <p class="text-xs sm:text-sm text-gray-300">Historial y exportación de datos</p>
     </div>
-    <nav class="space-x-2">
-      <a href="/logout" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded">Salir</a>
+    <nav class="flex flex-wrap justify-center gap-2">
+      <a href="/" class="bg-gray-700 hover:bg-gray-600 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Inicio</a>
+      <a href="/base_datos" class="bg-blue-600 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Base de Datos</a>
+      <a href="/reportes" class="bg-green-600 hover:bg-green-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Reportes</a>
+      <a href="/logout" class="bg-red-600 hover:bg-red-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Salir</a>
     </nav>
   </header>
 
-  <main class="flex-grow p-8">
-    <section class="bg-gray-800 p-6 rounded-lg max-w-6xl mx-auto">
-      <h2 class="text-xl font-bold mb-4">Historial de Tiempos Registrados</h2>
-      <table class="table-auto w-full text-left mt-4">
-        <thead>
-          <tr class="text-gray-300 border-b border-gray-600">
-            <th class="pb-2">Nombre</th>
-            <th class="pb-2">Código</th>
-            <th class="pb-2">Tipo</th>
-            <th class="pb-2">Fecha</th>
-            <th class="pb-2">Inicio</th>
-            <th class="pb-2">Fin</th>
-            <th class="pb-2">Duración (min)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in historial %}
-          <tr class="text-gray-100 border-b border-gray-700">
-            <td>{{ r.nombre }}</td>
-            <td>{{ r.codigo }}</td>
-            <td>{{ r.tipo }}</td>
-            <td>{{ r.fecha.strftime('%Y-%m-%d') if r.fecha else '' }}</td>
-            <td>{{ r.inicio.strftime('%H:%M') if r.inicio else '' }}</td>
-            <td>{{ r.fin.strftime('%H:%M') if r.fin else '' }}</td>
-            <td>{{ r.duracion_minutos }}</td>
-          </tr>
-          {% endfor %}
-
-          {% if historial|length == 0 %}
-          <tr>
-            <td colspan="7" class="text-center text-gray-400 py-4">No hay registros aún.</td>
-          </tr>
-          {% endif %}
-        </tbody>
-      </table>
+  <main class="container mx-auto px-4 py-8">
+    
+    <!-- SECCIÓN DE FILTROS -->
+    <section class="bg-gray-800 p-6 rounded-lg mb-6">
+      <h2 class="text-lg font-bold mb-4">🔍 Filtros de Búsqueda</h2>
+      
+      <form method="GET" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- FECHA INICIO -->
+        <div>
+          <label class="block text-sm font-medium mb-2">Fecha Inicio:</label>
+          <input 
+            type="date" 
+            name="fecha_inicio" 
+            value="{{ filtros.fecha_inicio or '' }}"
+            class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+          />
+        </div>
+        
+        <!-- FECHA FIN -->
+        <div>
+          <label class="block text-sm font-medium mb-2">Fecha Fin:</label>
+          <input 
+            type="date" 
+            name="fecha_fin" 
+            value="{{ filtros.fecha_fin or '' }}"
+            class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+          />
+        </div>
+        
+        <!-- USUARIO -->
+        <div>
+          <label class="block text-sm font-medium mb-2">Usuario:</label>
+          <select name="usuario" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
+            <option value="">Todos los usuarios</option>
+            {% for usuario in usuarios_disponibles %}
+            <option value="{{ usuario.nombre }}" {% if filtros.usuario == usuario.nombre %}selected{% endif %}>
+              {{ usuario.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <!-- TIPO -->
+        <div>
+          <label class="block text-sm font-medium mb-2">Tipo:</label>
+          <select name="tipo" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
+            <option value="">Todos los tipos</option>
+            <option value="Comida" {% if filtros.tipo == 'Comida' %}selected{% endif %}>Comida</option>
+            <option value="Descanso" {% if filtros.tipo == 'Descanso' %}selected{% endif %}>Descanso</option>
+          </select>
+        </div>
+        
+        <!-- BOTONES -->
+        <div class="lg:col-span-4 flex gap-2">
+          <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">
+            🔍 Filtrar
+          </button>
+          <a href="/registros" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">
+            🔄 Limpiar
+          </a>
+          <a href="/exportar_csv?{{ request.query_string.decode() }}" 
+             class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded">
+            📥 Exportar CSV
+          </a>
+        </div>
+      </form>
     </section>
 
-    <section class="bg-gray-800 p-6 rounded-lg max-w-4xl mx-auto mt-10">
-      <h2 class="text-xl font-bold mb-4">Personal en Turno y Descansos</h2>
-      <table class="table-auto w-full text-left mt-4">
-        <thead>
-          <tr class="text-gray-300 border-b border-gray-600">
-            <th class="pb-2">Nombre</th>
-            <th class="pb-2">Hora de Ingreso</th>
-            <th class="pb-2">Descanso</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for persona in descansos %}
-          <tr class="text-gray-100">
-            <td>{{ persona.nombre }}</td>
-            <td>{{ persona.inicio.strftime('%H:%M') if persona.inicio else '' }}</td>
-            <td>{{ 'Comida' if persona.tipo == 'Comida' else 'Descanso 20\'' }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <!-- ESTADÍSTICAS -->
+    {% if estadisticas.total_registros > 0 %}
+    <section class="bg-gray-800 p-6 rounded-lg mb-6">
+      <h2 class="text-lg font-bold mb-4">📊 Estadísticas de Resultados</h2>
+      
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="text-center">
+          <p class="text-2xl font-bold text-blue-400">{{ estadisticas.total_registros }}</p>
+          <p class="text-sm text-gray-300">Total Registros</p>
+        </div>
+        <div class="text-center">
+          <p class="text-2xl font-bold text-green-400">{{ estadisticas.total_horas }}</p>
+          <p class="text-sm text-gray-300">Total Horas</p>
+        </div>
+        <div class="text-center">
+          <p class="text-2xl font-bold text-yellow-400">{{ estadisticas.total_minutos }}</p>
+          <p class="text-sm text-gray-300">Total Minutos</p>
+        </div>
+        <div class="text-center">
+          <p class="text-2xl font-bold text-purple-400">{{ estadisticas.promedio_minutos }}</p>
+          <p class="text-sm text-gray-300">Promedio Min</p>
+        </div>
+      </div>
     </section>
+    {% endif %}
+
+    <!-- TABLA DE REGISTROS -->
+    <section class="bg-gray-800 p-6 rounded-lg">
+      <h2 class="text-lg font-bold mb-4">📋 Registros Históricos</h2>
+      
+      {% if historial %}
+      <div class="overflow-x-auto">
+        <table class="table-auto w-full text-left">
+          <thead>
+            <tr class="text-gray-300 border-b border-gray-600">
+              <th class="pb-2 px-2">Nombre</th>
+              <th class="pb-2 px-2">Código</th>
+              <th class="pb-2 px-2">Tipo</th>
+              <th class="pb-2 px-2">Fecha</th>
+              <th class="pb-2 px-2">Inicio</th>
+              <th class="pb-2 px-2">Fin</th>
+              <th class="pb-2 px-2">Duración</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for registro in historial %}
+            <tr class="text-gray-100 border-b border-gray-700 hover:bg-gray-700">
+              <td class="px-2 py-2">{{ registro.nombre }}</td>
+              <td class="px-2 py-2">{{ registro.codigo }}</td>
+              <td class="px-2 py-2">
+                <span class="{% if registro.tipo == 'Comida' %}bg-orange-600{% else %}bg-blue-600{% endif %} px-2 py-1 rounded text-xs">
+                  {{ registro.tipo }}
+                </span>
+              </td>
+              <td class="px-2 py-2">{{ registro.fecha.strftime('%Y-%m-%d') }}</td>
+              <td class="px-2 py-2">{{ registro.inicio.strftime('%H:%M') }}</td>
+              <td class="px-2 py-2">{{ registro.fin.strftime('%H:%M') }}</td>
+              <td class="px-2 py-2">
+                <span class="font-mono">{{ registro.duracion_minutos }} min</span>
+                <span class="text-gray-400 text-xs">({{ "%.1f"|format(registro.duracion_minutos / 60) }}h)</span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-8">
+        <p class="text-gray-400">No hay registros que coincidan con los filtros seleccionados</p>
+      </div>
+      {% endif %}
+    </section>
+
   </main>
+
+  <footer class="mt-8 py-4 text-center text-gray-400 text-sm">
+    <p>&copy; 2005 BreakTime Tracker - Sistema de control de descansos</p>
+  </footer>
 </body>
 </html>
