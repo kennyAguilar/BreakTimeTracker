@@ -5,104 +5,165 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BreakTime Tracker</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
   <script>
-    // Limpiar automáticamente el input después de enviar
-    document.addEventListener('DOMContentLoaded', function () {
-      const form = document.querySelector('form');
-      const input = document.querySelector('input[name="tarjeta"]');
-      if (form && input) {
-        form.addEventListener('submit', function () {
-          setTimeout(() => {
-            input.value = '';
-          }, 300);
-        });
-      }
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('form');
+    const input = document.querySelector('input[name="tarjeta"]');
+    if (form && input) {
+      form.addEventListener('submit', function () {
+        setTimeout(() => {
+          input.value = '';
+        }, 300);
+      });
+    }
 
-      // Actualizar los tiempos restantes cada 60 segundos en base a hora de inicio real
-      const tiempoElements = document.querySelectorAll('[data-inicio][data-tipo]');
-      setInterval(() => {
-        const ahora = new Date();
+    // Actualizar los tiempos restantes cada minuto
+    const tiempoElements = document.querySelectorAll('[data-inicio][data-tipo]');
+    
+    function actualizarTiempos() {
+      const ahora = new Date();
+      
+      tiempoElements.forEach(el => {
+        const inicioStr = el.dataset.inicio;
+        const tipo = el.dataset.tipo;
+        const inicio = new Date(inicioStr);
 
-        tiempoElements.forEach(el => {
-          const inicioStr = el.dataset.inicio;
-          const tipo = el.dataset.tipo;
-          const inicio = new Date(inicioStr);
+        const transcurridoMinutos = Math.floor((ahora - inicio) / 60000);
+        const limite = tipo === 'Comida' ? 40 : 20;
+        const restante = limite - transcurridoMinutos;
 
-          const transcurrido = (ahora - inicio) / 60000; // en minutos
-          const limite = tipo === 'Comida' ? 40 : 20;
-          const restante = limite - transcurrido;
-
-          if (restante >= 0) {
-            el.innerText = `${restante.toFixed(1)} min`;
-          } else {
-            el.innerText = `+${Math.abs(restante).toFixed(1)} min`;
-          }
-        });
-      }, 60000);
-    });
+        if (restante > 0) {
+          el.innerText = `${restante} min`;
+          el.className = 'px-2 sm:px-4 py-2 text-green-400';
+        } else if (restante === 0) {
+          el.innerText = '0 min';
+          el.className = 'px-2 sm:px-4 py-2 text-yellow-400';
+        } else {
+          el.innerText = `+${Math.abs(restante)} min`;
+          el.className = 'px-2 sm:px-4 py-2 text-red-400';
+        }
+      });
+    }
+    
+    // Actualizar inmediatamente y luego cada minuto
+    actualizarTiempos();
+    setInterval(actualizarTiempos, 60000);
+  });
   </script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
-  <header class="flex justify-between items-center px-8 py-4 bg-gray-800 shadow">
-    <div>
-      <h1 class="text-2xl font-bold">BreakTime Tracker</h1>
-      <p class="text-sm text-gray-300">Control de descansos y comidas</p>
+  <!-- HEADER RESPONSIVE -->
+  <header class="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-800 shadow">
+    <div class="mb-4 sm:mb-0 text-center sm:text-left">
+      <h1 class="text-xl sm:text-2xl font-bold">BreakTime Tracker</h1>
+      <p class="text-xs sm:text-sm text-gray-300">Control de descansos y comidas</p>
     </div>
-    <nav class="space-x-2">
-      <a href="/" class="bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded">Inicio</a>
-      <a href="/login" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Base de Datos</a>
-      <a href="/registros" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded">Registros</a>
+    <!-- NAVEGACIÓN RESPONSIVE -->
+    <nav class="flex flex-wrap justify-center gap-2">
+      <a href="/" class="bg-violet-600 hover:bg-violet-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Inicio</a>
+      <a href="/login" class="bg-blue-600 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Base de Datos</a>
+      <a href="/registros" class="bg-gray-700 hover:bg-gray-600 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Registros</a>
     </nav>
   </header>
 
-  <main class="flex flex-col items-center mt-10">
-    <section class="bg-gray-800 p-6 rounded-lg w-2/3 mb-6">
-      <h2 class="text-xl font-bold mb-4">Lector de Tarjetas</h2>
+  <!-- MAIN CONTENT RESPONSIVE -->
+  <main class="flex flex-col items-center mt-4 sm:mt-10 px-4">
+    
+    <!-- SECCIÓN LECTOR DE TARJETAS -->
+    <section class="bg-gray-800 p-4 sm:p-6 rounded-lg w-full max-w-6xl mb-4 sm:mb-6">
+      <h2 class="text-lg sm:text-xl font-bold mb-4 text-center sm:text-left">Lector de Tarjetas</h2>
       <form method="POST">
-        <div class="border border-dashed border-gray-500 p-8 text-center mb-4 rounded">
-          <p class="text-gray-300 mb-4">Deslice la tarjeta (Numero de Rojo)</p>
+        <div class="border border-dashed border-gray-500 p-4 sm:p-8 text-center mb-4 rounded">
+          <p class="text-gray-300 mb-4 text-sm sm:text-base">Deslice la tarjeta (Numero de Rojo)</p>
           <input 
             type="text" 
             name="tarjeta" 
             placeholder="Esperando tarjeta..." 
-            class="w-full p-2 rounded bg-gray-100 text-black text-center" 
+            class="w-full p-3 sm:p-2 rounded bg-gray-100 text-black text-center text-sm sm:text-base" 
             autofocus 
           />
         </div>
       </form>
     </section>
 
-    <section class="bg-gray-800 p-6 rounded-lg w-2/3">
-      <h2 class="text-xl font-bold mb-2">Personal en Turno y Descansos</h2>
-      <table class="table-auto w-full text-left mt-4">
-        <thead>
-          <tr class="text-gray-300 border-b border-gray-600">
-            <th class="pb-2">Nombre</th>
-            <th class="pb-2">Hora de Ingreso</th>
-            <th class="pb-2">Descanso</th>
-            <th class="pb-2">Tiempo Restante</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for persona in descansos %}
-          <tr class="text-gray-100">
-            <td>{{ persona.nombre }}</td>
-            <td>{{ persona.inicio.strftime('%H:%M') if persona.inicio else '' }}</td>
-            <td>
-              {% if persona.tiempo_restante <= 20 %}
-                Descanso 20'
-              {% else %}
-                Comida 40'
-              {% endif %}
-            </td>
-            <td data-inicio="{{ persona.inicio.isoformat() }}" data-tipo="{{ 'Comida' if persona.tiempo_restante > 20 else 'Descanso' }}">
-              {{ persona.tiempo_restante|round(1) }} min
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <!-- SECCIÓN TABLA DE DESCANSOS -->
+    <section class="bg-gray-800 p-4 sm:p-6 rounded-lg w-full max-w-6xl">
+      <h2 class="text-lg sm:text-xl font-bold mb-4 text-center sm:text-left">Personal en Turno y Descansos</h2>
+      
+      <!-- TABLA PARA PANTALLAS GRANDES -->
+      <div class="hidden sm:block overflow-x-auto">
+        <table class="table-auto w-full text-left">
+          <thead>
+            <tr class="text-gray-300 border-b border-gray-600">
+              <th class="pb-2 px-2">Nombre</th>
+              <th class="pb-2 px-2">Hora de Ingreso</th>
+              <th class="pb-2 px-2">Descanso</th>
+              <th class="pb-2 px-2">Tiempo Restante</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for descanso in descansos %}
+            <tr class="text-gray-100 border-b border-gray-700">
+              <td class="px-2 py-2">{{ descanso.nombre }} ({{ descanso.codigo }})</td>
+              <td class="px-2 py-2">{{ descanso.inicio.strftime('%H:%M') }}</td>
+              <td class="px-2 py-2">
+                <span class="{% if descanso.tipo == 'Comida' %}bg-orange-600{% else %}bg-blue-600{% endif %} px-2 py-1 rounded text-xs">
+                  {{ descanso.tipo }}
+                </span>
+              </td>
+              <td class="px-2 py-2" data-inicio="{{ descanso.inicio.isoformat() }}" data-tipo="{{ descanso.tipo }}">
+                {{ descanso.tiempo_restante }} min
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TARJETAS PARA MÓVILES -->
+      <div class="sm:hidden space-y-4">
+        {% for descanso in descansos %}
+        <div class="bg-gray-700 p-4 rounded-lg">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <h3 class="font-bold text-sm">{{ descanso.nombre }}</h3>
+              <p class="text-xs text-gray-300">({{ descanso.codigo }})</p>
+            </div>
+            <span class="{% if descanso.tipo == 'Comida' %}bg-orange-600{% else %}bg-blue-600{% endif %} px-2 py-1 rounded text-xs">
+              {{ descanso.tipo }}
+            </span>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span class="text-gray-400">Inicio:</span>
+              <span class="text-white">{{ descanso.inicio.strftime('%H:%M') }}</span>
+            </div>
+            <div>
+              <span class="text-gray-400">Restante:</span>
+              <span class="text-white" data-inicio="{{ descanso.inicio.isoformat() }}" data-tipo="{{ descanso.tipo }}">
+                {{ descanso.tiempo_restante }} min
+              </span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- MENSAJE CUANDO NO HAY DESCANSOS -->
+      {% if not descansos %}
+      <div class="text-center py-8">
+        <p class="text-gray-400 text-sm sm:text-base">No hay personal en descanso actualmente</p>
+      </div>
+      {% endif %}
     </section>
+
   </main>
+
+  <!-- PIE DE PÁGINA -->
+  <footer class="mt-8 sm:mt-12 py-4 text-center text-gray-400 text-xs sm:text-sm">
+    <p>&copy; 2005 BreakTime Tracker - Sistema de control de descansos</p>
+  </footer>
 </body>
 </html>

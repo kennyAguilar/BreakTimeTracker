@@ -1,0 +1,131 @@
+/* ESTILOS GENERALES */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ANIMACIONES PARA MENSAJES FLASH */
+.flash-message {
+    animation: slideInRight 0.3s ease-out forwards;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* EFECTO HOVER PARA BOTONES */
+.btn-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+/* ESTILOS PARA TARJETAS MÓVILES */
+.card-mobile {
+    background: linear-gradient(135deg, #374151 0%, #4B5563 100%);
+    border-left: 4px solid #6366F1;
+}
+
+/* EFECTOS PARA LA TABLA */
+.table-row:hover {
+    background-color: rgba(107, 114, 128, 0.1);
+    transition: background-color 0.2s ease;
+}
+
+/* ESTILOS PARA EL INPUT DE TARJETA */
+.card-input {
+    border: 2px solid #6B7280;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-input:focus {
+    border-color: #6366F1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    outline: none;
+}
+
+/* INDICADORES DE TIEMPO */
+.tiempo-normal {
+    color: #10B981; /* Verde */
+}
+
+.tiempo-advertencia {
+    color: #F59E0B; /* Amarillo */
+    animation: pulse 2s infinite;
+}
+
+.tiempo-excedido {
+    color: #EF4444; /* Rojo */
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* BADGES MEJORADOS */
+.badge-comida {
+    background: linear-gradient(135deg, #EA580C 0%, #DC2626 100%);
+    box-shadow: 0 2px 4px rgba(234, 88, 12, 0.3);
+}
+
+.badge-descanso {
+    background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+}
+
+/* HEADER MEJORADO */
+.header-gradient {
+    background: linear-gradient(135deg, #1F2937 0%, #374151 100%);
+}
+
+/* LOADING SPINNER */
+.spinner {
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #6366F1;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-left: 8px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* RESPONSIVE MEJORAS */
+@media (max-width: 640px) {
+    .card-mobile {
+        margin-bottom: 1rem;
+    }
+    
+    .flash-message {
+        max-width: calc(100vw - 2rem);
+        margin: 0 1rem;
+    }
+}
+
+/* EFECTOS DE FOCUS PARA ACCESIBILIDAD */
+.focus-visible:focus {
+    outline: 2px solid #6366F1;
+    outline-offset: 2px;
+}
+
+/* TRANSICIONES SUAVES */
+* {
+    transition: color 0.2s ease, background-color 0.2s ease;
+}

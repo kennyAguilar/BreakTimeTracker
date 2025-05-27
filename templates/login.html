@@ -35,15 +35,6 @@
           🔐 Ingresar al Panel
         </button>
       </form>
-
-      {% with messages = get_flashed_messages() %}
-        {% if messages %}
-          <div class="bg-red-600 text-white text-center mt-6 p-3 rounded">
-            {{ messages[0] }}
-          </div>
-        {% endif %}
-      {% endwith %}
-
     </div>
   </main>
 </body>
