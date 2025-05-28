@@ -268,6 +268,96 @@ def base_datos():
         if conn:
             conn.close()
 
+# EDITAR USUARIO
+@app.route('/editar_usuario/<int:usuario_id>', methods=['GET', 'POST'])
+def editar_usuario(usuario_id):
+    """
+    Editar un usuario existente
+    Como actualizar información en un archivo de empleados
+    """
+    if 'usuario' not in session:
+        return redirect(url_for('login', next='base_datos'))
+
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        if request.method == 'POST':
+            nombre = request.form.get('nombre', '').strip()
+            tarjeta = request.form.get('tarjeta', '').strip()
+            turno = request.form.get('turno', '').strip()
+            codigo = request.form.get('codigo', '').strip()
+            
+            if all([nombre, tarjeta, turno, codigo]) and len(tarjeta) >= 3 and len(codigo) >= 2:
+                try:
+                    cur.execute('''
+                        UPDATE usuarios 
+                        SET nombre = %s, tarjeta = %s, turno = %s, codigo = %s 
+                        WHERE id = %s
+                    ''', (nombre, tarjeta, turno, codigo, usuario_id))
+                    conn.commit()
+                    return redirect(url_for('base_datos'))
+                except psycopg2.IntegrityError:
+                    conn.rollback()
+                    # Tarjeta o código ya existe - continuar sin mensaje
+                    pass
+        
+        # OBTENER DATOS DEL USUARIO PARA MOSTRAR EN EL FORMULARIO
+        cur.execute('SELECT * FROM usuarios WHERE id = %s', (usuario_id,))
+        usuario_data = cur.fetchone()
+        
+        if not usuario_data:
+            # Si no existe el usuario, regresar a base de datos
+            return redirect(url_for('base_datos'))
+            
+        return render_template('editar_usuario.html', usuario=usuario_data)
+        
+    except Exception as e:
+        logger.error(f"Error editando usuario: {e}")
+        return redirect(url_for('base_datos'))
+    finally:
+        if conn:
+            conn.close()
+
+# ELIMINAR USUARIO  
+@app.route('/eliminar_usuario/<int:usuario_id>', methods=['POST'])
+def eliminar_usuario(usuario_id):
+    """
+    Eliminar un usuario del sistema
+    Como remover a alguien del archivo de empleados
+    """
+    if 'usuario' not in session:
+        return redirect(url_for('login', next='base_datos'))
+
+    conn = None
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # VERIFICAR SI EL USUARIO TIENE REGISTROS DE DESCANSOS
+        cur.execute('SELECT COUNT(*) as total FROM tiempos_descanso WHERE usuario_id = %s', (usuario_id,))
+        result = cur.fetchone()
+        tiene_registros = result['total'] > 0 if result else False
+        
+        if tiene_registros:
+            # SI TIENE REGISTROS, NO ELIMINAR (preservar integridad de datos)
+            # En una versión futura podríamos marcar como "inactivo"
+            pass
+        else:
+            # SI NO TIENE REGISTROS, ELIMINAR COMPLETAMENTE
+            cur.execute('DELETE FROM usuarios WHERE id = %s', (usuario_id,))
+            conn.commit()
+        
+        return redirect(url_for('base_datos'))
+        
+    except Exception as e:
+        logger.error(f"Error eliminando usuario: {e}")
+        return redirect(url_for('base_datos'))
+    finally:
+        if conn:
+            conn.close()
+
 # PÁGINA DE REGISTROS MEJORADA - Con filtros y exportación
 @app.route('/registros')
 def registros():
@@ -491,8 +581,8 @@ def reportes():
         cur.execute('''
             SELECT 
                 COUNT(*) as total_descansos,
-                SUM(duracion_minutos) as total_minutos,
-                AVG(duracion_minutos) as promedio_minutos,
+                COALESCE(SUM(duracion_minutos), 0) as total_minutos,
+                COALESCE(AVG(duracion_minutos), 0) as promedio_minutos,
                 COUNT(CASE WHEN tipo = 'Comida' THEN 1 END) as comidas,
                 COUNT(CASE WHEN tipo = 'Descanso' THEN 1 END) as descansos_cortos
             FROM tiempos_descanso 
@@ -506,8 +596,8 @@ def reportes():
         cur.execute('''
             SELECT 
                 COUNT(*) as total_descansos,
-                SUM(duracion_minutos) as total_minutos,
-                AVG(duracion_minutos) as promedio_minutos
+                COALESCE(SUM(duracion_minutos), 0) as total_minutos,
+                COALESCE(AVG(duracion_minutos), 0) as promedio_minutos
             FROM tiempos_descanso 
             WHERE fecha >= %s
         ''', (inicio_semana,))
@@ -520,7 +610,7 @@ def reportes():
                 u.nombre,
                 u.codigo,
                 COUNT(*) as total_descansos,
-                SUM(t.duracion_minutos) as total_minutos
+                COALESCE(SUM(t.duracion_minutos), 0) as total_minutos
             FROM tiempos_descanso t
             JOIN usuarios u ON u.id = t.usuario_id
             WHERE t.fecha >= %s
@@ -536,7 +626,7 @@ def reportes():
             SELECT 
                 fecha,
                 COUNT(*) as cantidad,
-                SUM(duracion_minutos) as minutos_total
+                COALESCE(SUM(duracion_minutos), 0) as minutos_total
             FROM tiempos_descanso 
             WHERE fecha >= %s
             GROUP BY fecha
@@ -570,7 +660,12 @@ def reportes():
         
     except Exception as e:
         logger.error(f"Error en reportes: {e}")
-        return render_template('reportes.html')
+        return render_template('reportes.html', 
+                             stats_hoy=None, 
+                             stats_semana=None,
+                             top_usuarios=[], 
+                             descansos_por_dia=[], 
+                             activos_ahora=[])
     finally:
         if conn:
             conn.close()

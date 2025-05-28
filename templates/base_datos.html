@@ -3,71 +3,211 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agregar Asistentes</title>
+  <title>Base de Datos - BreakTime Tracker</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
-  <header class="flex justify-between items-center px-8 py-4 bg-gray-800 shadow">
-    <div>
-      <h1 class="text-2xl font-bold">BreakTime Tracker</h1>
-      <p class="text-sm text-gray-300">Agregar Asistentes</p>
+  <!-- HEADER MEJORADO -->
+  <header class="flex flex-col sm:flex-row justify-between items-center px-4 sm:px-8 py-4 bg-gray-800 shadow">
+    <div class="mb-4 sm:mb-0 text-center sm:text-left">
+      <h1 class="text-xl sm:text-2xl font-bold">Base de Datos de Usuarios</h1>
+      <p class="text-xs sm:text-sm text-gray-300">Gestión completa de asistentes</p>
     </div>
-    <nav class="space-x-2">
-      <a href="/logout" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded">Salir</a>
+    <nav class="flex flex-wrap justify-center gap-2">
+      <a href="/" class="bg-gray-700 hover:bg-gray-600 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Inicio</a>
+      <a href="/registros" class="bg-purple-600 hover:bg-purple-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Registros</a>
+      <a href="/reportes" class="bg-green-600 hover:bg-green-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Reportes</a>
+      <a href="/logout" class="bg-red-600 hover:bg-red-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Salir</a>
     </nav>
   </header>
 
-  <main class="flex flex-col items-center mt-10">
-    <section class="bg-gray-800 p-6 rounded-lg w-2/3 mb-6">
-      <h2 class="text-xl font-bold mb-4">Nuevo Asistente</h2>
-      <form method="POST">
-        <div class="mb-4">
-          <label for="nombre" class="block text-sm mb-1">Nombre completo</label>
-          <input type="text" id="nombre" name="nombre" required class="w-full p-2 rounded bg-gray-100 text-black" />
+  <main class="container mx-auto px-4 py-8">
+    
+    <!-- FORMULARIO PARA AGREGAR USUARIO -->
+    <section class="bg-gray-800 p-6 rounded-lg mb-6">
+      <h2 class="text-lg font-bold mb-4">➕ Agregar Nuevo Asistente</h2>
+      <form method="POST" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div>
+          <label for="nombre" class="block text-sm font-medium mb-2">Nombre Completo:</label>
+          <input 
+            type="text" 
+            id="nombre" 
+            name="nombre" 
+            required 
+            class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+            placeholder="Ej: Juan Pérez"
+          />
         </div>
-        <div class="mb-4">
-          <label for="tarjeta" class="block text-sm mb-1">Número de tarjeta</label>
-          <input type="text" id="tarjeta" name="tarjeta" required class="w-full p-2 rounded bg-gray-100 text-black" />
+        
+        <div>
+          <label for="tarjeta" class="block text-sm font-medium mb-2">Número de Tarjeta:</label>
+          <input 
+            type="text" 
+            id="tarjeta" 
+            name="tarjeta" 
+            required 
+            class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+            placeholder="Ej: 123456789"
+          />
         </div>
-        <div class="mb-4">
-          <label for="turno" class="block text-sm mb-1">Tipo de turno</label>
-          <select id="turno" name="turno" required class="w-full p-2 rounded bg-gray-100 text-black">
-            <option value="Full">Full</option>
-            <option value="Part-time">Part-time</option>
+        
+        <div>
+          <label for="turno" class="block text-sm font-medium mb-2">Tipo de Turno:</label>
+          <select 
+            id="turno" 
+            name="turno" 
+            required 
+            class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+          >
+            <option value="">Seleccionar turno</option>
+            <option value="Full">Full Time</option>
+            <option value="Part-time">Part Time</option>
             <option value="Llamado">Llamado</option>
           </select>
         </div>
-        <div class="mb-6">
-          <label for="codigo" class="block text-sm mb-1">Número de Asistente (Ej: KA22)</label>
-          <input type="text" id="codigo" name="codigo" required class="w-full p-2 rounded bg-gray-100 text-black" />
+        
+        <div>
+          <label for="codigo" class="block text-sm font-medium mb-2">Código Asistente:</label>
+          <input 
+            type="text" 
+            id="codigo" 
+            name="codigo" 
+            required 
+            class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+            placeholder="Ej: KA22"
+          />
         </div>
-        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-semibold text-white shadow">➕ Agregar Asistente</button>
+        
+        <div class="lg:col-span-4">
+          <button 
+            type="submit" 
+            class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded font-semibold text-white shadow"
+          >
+            ➕ Agregar Asistente
+          </button>
+        </div>
       </form>
     </section>
 
-    <section class="bg-gray-800 p-6 rounded-lg w-2/3">
-      <h2 class="text-xl font-bold mb-4">Lista de Asistentes Registrados</h2>
-      <table class="table-auto w-full text-left mt-4">
-        <thead>
-          <tr class="text-gray-300 border-b border-gray-600">
-            <th class="pb-2">Nombre</th>
-            <th class="pb-2">Tarjeta</th>
-            <th class="pb-2">Turno</th>
-            <th class="pb-2">N° Asistente</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for u in usuarios %}
-          <tr class="text-gray-100">
-            <td>{{ u.nombre }}</td>
-            <td>{{ u.tarjeta }}</td>
-            <td>{{ u.turno }}</td>
-            <td>{{ u.codigo }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <!-- TABLA DE USUARIOS CON ACCIONES -->
+    <section class="bg-gray-800 p-6 rounded-lg">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">👥 Lista de Asistentes Registrados</h2>
+        <div class="text-sm text-gray-300">
+          Total: {{ usuarios|length }} usuarios
+        </div>
+      </div>
+      
+      {% if usuarios %}
+      <!-- TABLA PARA PANTALLAS GRANDES -->
+      <div class="hidden sm:block overflow-x-auto">
+        <table class="table-auto w-full text-left">
+          <thead>
+            <tr class="text-gray-300 border-b border-gray-600">
+              <th class="pb-2 px-2">Nombre</th>
+              <th class="pb-2 px-2">Tarjeta</th>
+              <th class="pb-2 px-2">Turno</th>
+              <th class="pb-2 px-2">Código</th>
+              <th class="pb-2 px-2 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in usuarios %}
+            <tr class="text-gray-100 border-b border-gray-700 hover:bg-gray-700">
+              <td class="px-2 py-2 font-medium">{{ u.nombre }}</td>
+              <td class="px-2 py-2 font-mono text-sm">{{ u.tarjeta }}</td>
+              <td class="px-2 py-2">
+                <span class="{% if u.turno == 'Full' %}bg-green-600{% elif u.turno == 'Part-time' %}bg-yellow-600{% else %}bg-blue-600{% endif %} px-2 py-1 rounded text-xs">
+                  {{ u.turno }}
+                </span>
+              </td>
+              <td class="px-2 py-2 font-mono font-bold">{{ u.codigo }}</td>
+              <td class="px-2 py-2 text-center">
+                <div class="flex justify-center gap-2">
+                  <!-- BOTÓN EDITAR -->
+                  <a 
+                    href="/editar_usuario/{{ u.id }}" 
+                    class="bg-yellow-600 hover:bg-yellow-700 px-2 py-1 rounded text-xs"
+                    title="Editar usuario"
+                  >
+                    ✏️ Editar
+                  </a>
+                  
+                  <!-- BOTÓN ELIMINAR -->
+                  <form method="POST" action="/eliminar_usuario/{{ u.id }}" class="inline" 
+                        onsubmit="return confirm('¿Estás seguro de eliminar a {{ u.nombre }}?')">
+                    <button 
+                      type="submit" 
+                      class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs"
+                      title="Eliminar usuario"
+                    >
+                      🗑️ Eliminar
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TARJETAS PARA MÓVILES -->
+      <div class="sm:hidden space-y-4">
+        {% for u in usuarios %}
+        <div class="bg-gray-700 p-4 rounded-lg">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <h3 class="font-bold text-sm">{{ u.nombre }}</h3>
+              <p class="text-xs text-gray-300 font-mono">{{ u.codigo }}</p>
+            </div>
+            <span class="{% if u.turno == 'Full' %}bg-green-600{% elif u.turno == 'Part-time' %}bg-yellow-600{% else %}bg-blue-600{% endif %} px-2 py-1 rounded text-xs">
+              {{ u.turno }}
+            </span>
+          </div>
+          
+          <div class="grid grid-cols-1 gap-1 text-sm mb-3">
+            <div>
+              <span class="text-gray-400">Tarjeta:</span>
+              <span class="text-white font-mono">{{ u.tarjeta }}</span>
+            </div>
+          </div>
+          
+          <!-- ACCIONES MÓVIL -->
+          <div class="flex gap-2">
+            <a 
+              href="/editar_usuario/{{ u.id }}" 
+              class="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded text-xs flex-1 text-center"
+            >
+              ✏️ Editar
+            </a>
+            <form method="POST" action="/eliminar_usuario/{{ u.id }}" class="flex-1" 
+                  onsubmit="return confirm('¿Eliminar a {{ u.nombre }}?')">
+              <button 
+                type="submit" 
+                class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-xs w-full"
+              >
+                🗑️ Eliminar
+              </button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      
+      {% else %}
+      <div class="text-center py-8">
+        <p class="text-gray-400">No hay usuarios registrados aún</p>
+        <p class="text-sm text-gray-500 mt-2">Usa el formulario de arriba para agregar el primer usuario</p>
+      </div>
+      {% endif %}
     </section>
+
   </main>
+
+  <footer class="mt-8 py-4 text-center text-gray-400 text-sm">
+    <p>&copy; 2005 BreakTime Tracker - Sistema de control de descansos</p>
+  </footer>
 </body>
 </html>
