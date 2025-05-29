@@ -37,6 +37,8 @@
             name="fecha_inicio" 
             value="{{ filtros.fecha_inicio or '' }}"
             class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+            title="Selecciona la fecha de inicio"
+            placeholder="Fecha de inicio"
           />
         </div>
         
@@ -48,13 +50,15 @@
             name="fecha_fin" 
             value="{{ filtros.fecha_fin or '' }}"
             class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+            title="Selecciona la fecha de fin"
+            placeholder="Fecha de fin"
           />
         </div>
         
         <!-- USUARIO -->
         <div>
-          <label class="block text-sm font-medium mb-2">Usuario:</label>
-          <select name="usuario" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
+          <label for="usuario-select" class="block text-sm font-medium mb-2">Usuario:</label>
+          <select id="usuario-select" name="usuario" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
             <option value="">Todos los usuarios</option>
             {% for usuario in usuarios_disponibles %}
             <option value="{{ usuario.nombre }}" {% if filtros.usuario == usuario.nombre %}selected{% endif %}>
@@ -67,7 +71,7 @@
         <!-- TIPO -->
         <div>
           <label class="block text-sm font-medium mb-2">Tipo:</label>
-          <select name="tipo" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
+          <select name="tipo" title="Tipo de descanso" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
             <option value="">Todos los tipos</option>
             <option value="Comida" {% if filtros.tipo == 'Comida' %}selected{% endif %}>Comida</option>
             <option value="Descanso" {% if filtros.tipo == 'Descanso' %}selected{% endif %}>Descanso</option>
