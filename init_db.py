@@ -51,6 +51,25 @@ CREATE TABLE IF NOT EXISTS tiempos_descanso (
 )
 ''')
 
+# Crear tabla de administradores
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS administradores (
+    id SERIAL PRIMARY KEY,
+    usuario TEXT NOT NULL UNIQUE,
+    clave TEXT NOT NULL,
+    nombre TEXT NOT NULL,
+    activo BOOLEAN DEFAULT TRUE,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
+# Insertar administrador por defecto
+cursor.execute('''
+INSERT INTO administradores (usuario, clave, nombre) 
+VALUES ('admin', '1234', 'Administrador Principal')
+ON CONFLICT (usuario) DO NOTHING
+''')
+
 conn.commit()
 conn.close()
 

@@ -188,7 +188,7 @@ def index():
 def login():
     """
     Como una puerta con código secreto para administradores.
-    Solo quien sepa el usuario y contraseña puede entrar.
+    Busca usuarios y contraseñas en la base de datos.
     """
     next_page = request.args.get('next')
     
@@ -197,20 +197,43 @@ def login():
         clave = request.form.get('clave', '').strip()
         
         if not usuario or not clave:
-            # Sin flash - solo redireccionar
-            return render_template('login.html')
+            return render_template('login.html', error="Usuario y contraseña requeridos")
             
-        admin_user = os.getenv('ADMIN_USER', 'admin')
-        admin_pass = os.getenv('ADMIN_PASS', '1234')
-        
-        if usuario == admin_user and clave == admin_pass:
-            session['usuario'] = 'admin'
-            session.permanent = True
-            # Sin flash - solo redireccionar
-            return redirect(url_for(next_page)) if next_page else redirect(url_for('base_datos'))
-        else:
-            # Sin flash - solo redireccionar
-            return render_template('login.html')
+        # BUSCAR EN LA BASE DE DATOS
+        conn = None
+        try:
+            conn = get_db()
+            cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            
+            # Buscar administrador activo con usuario y clave
+            cur.execute('''
+                SELECT id, usuario, nombre 
+                FROM administradores 
+                WHERE usuario = %s AND clave = %s AND activo = TRUE
+            ''', (usuario, clave))
+            
+            admin = cur.fetchone()
+            
+            if admin:
+                # Login exitoso
+                session['usuario'] = admin['usuario']
+                session['admin_id'] = admin['id']
+                session['admin_nombre'] = admin['nombre']
+                session.permanent = True
+                
+                logger.info(f"Login exitoso para {admin['nombre']} ({admin['usuario']})")
+                return redirect(url_for(next_page)) if next_page else redirect(url_for('base_datos'))
+            else:
+                # Login fallido
+                logger.warning(f"Intento de login fallido para usuario: {usuario}")
+                return render_template('login.html', error="Usuario o contraseña incorrectos")
+                
+        except Exception as e:
+            logger.error(f"Error en login: {e}")
+            return render_template('login.html', error="Error del sistema")
+        finally:
+            if conn:
+                conn.close()
             
     return render_template('login.html')
 
