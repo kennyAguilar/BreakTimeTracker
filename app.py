@@ -8,6 +8,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, m
 # make_response = para crear respuestas personalizadas (como CSV)
 
 from datetime import datetime, timedelta  # Para trabajar con fechas y horas
+import pytz  # Para manejo de zonas horarias
 import psycopg2  # Para conectarse a la base de datos PostgreSQL
 import psycopg2.extras  # Herramientas extra para la base de datos
 import os  # Para acceder a configuraciones del sistema
@@ -25,6 +26,25 @@ load_dotenv()  # Cargar configuraciones secretas desde un archivo .env
 app = Flask(__name__)  # Crear nuestra aplicación web
 # Una clave secreta para proteger la información de usuarios conectados
 app.secret_key = os.getenv('SECRET_KEY', 'clave-temporal-cambiar-en-produccion')
+
+# CONFIGURACIÓN DE ZONA HORARIA PARA PUNTA ARENAS
+PUNTA_ARENAS_TZ = pytz.timezone('America/Punta_Arenas')
+
+def obtener_hora_local():
+    """Obtiene la hora actual de Punta Arenas independientemente del servidor"""
+    utc_now = datetime.now(pytz.UTC)
+    punta_arenas_time = utc_now.astimezone(PUNTA_ARENAS_TZ)
+    
+    # DEBUG - remover después
+    print(f"🌍 UTC: {utc_now}")
+    print(f"🏔️ Punta Arenas: {punta_arenas_time}")
+    
+    return punta_arenas_time
+
+def fecha_hora_local():
+    """Obtiene fecha y hora local para usar en place de datetime.now()"""
+    local_time = obtener_hora_local()
+    return local_time.replace(tzinfo=None)  # Sin timezone para compatibilidad con DB
 
 # FUNCIÓN PARA CONECTARSE A LA BASE DE DATOS
 def get_db():
@@ -122,8 +142,8 @@ def index():
             cur.execute('SELECT * FROM descansos WHERE usuario_id = %s', (usuario_id,))
             descanso_activo = cur.fetchone()
 
-            ahora = datetime.now()
-            fecha_actual = ahora.date()
+            ahora = fecha_hora_local()
+            fecha_actual = ahora.date() 
             hora_actual = ahora.time()
 
             if descanso_activo:
@@ -173,7 +193,7 @@ def index():
         activos = []
         
         # Calcular tiempo restante en Python para garantizar enteros
-        ahora = datetime.now()
+        ahora = fecha_hora_local()
         for descanso in activos_raw:
             transcurrido_segundos = (ahora - descanso['inicio']).total_seconds()
             transcurrido_minutos = int(transcurrido_segundos / 60)  # Convertir a entero
@@ -584,7 +604,7 @@ def exportar_csv():
         
         # CREAR RESPUESTA HTTP CON EL CSV
         output.seek(0)
-        fecha_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
+        fecha_actual = fecha_hora_local().strftime('%Y%m%d_%H%M%S')
         nombre_archivo = f'registros_descansos_{fecha_actual}.csv'
         
         response = make_response(output.getvalue())
@@ -616,7 +636,7 @@ def reportes():
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         # ESTADÍSTICAS DE HOY
-        hoy = datetime.now().date()
+        hoy = fecha_hora_local().date()
         cur.execute('''
             SELECT 
                 COUNT(*) as total_descansos,
