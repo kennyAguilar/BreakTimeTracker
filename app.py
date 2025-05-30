@@ -90,55 +90,71 @@ def index():
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         if request.method == 'POST':
-            tarjeta_raw = request.form.get('tarjeta')
-            tarjeta = validar_tarjeta(tarjeta_raw)
+            entrada_raw = request.form.get('entrada', '').strip()
             
-            if not tarjeta:
-                # Sin mensajes - solo redireccionar
+            if not entrada_raw:
+                return redirect(url_for('index'))
+            
+            usuario = None
+            
+            # INTENTAR COMO TARJETA PRIMERO
+            if len(entrada_raw) >= 10:  # Si es largo, probablemente es tarjeta
+                tarjeta = validar_tarjeta(entrada_raw)
+                if tarjeta:
+                    cur.execute('SELECT * FROM usuarios WHERE tarjeta = %s', (tarjeta,))
+                    usuario = cur.fetchone()
+
+            # SI NO ENCONTRÓ POR TARJETA, INTENTAR COMO CÓDIGO
+            if not usuario:
+                codigo = entrada_raw.upper().strip()
+                if len(codigo) >= 2:
+                    cur.execute('SELECT * FROM usuarios WHERE UPPER(codigo) = %s', (codigo,))
+                    usuario = cur.fetchone()
+
+            # Si no se encontró usuario con ninguno de los métodos
+            if not usuario:
                 return redirect(url_for('index'))
 
-            cur.execute('SELECT * FROM usuarios WHERE tarjeta = %s', (tarjeta,))
-            usuario = cur.fetchone()
+            # PROCESAMIENTO DE ENTRADA/SALIDA DE DESCANSO
+            usuario_id = usuario['id']
+            nombre_usuario = usuario['nombre']
 
-            if usuario:
-                usuario_id = usuario['id']
-                nombre_usuario = usuario['nombre']
+            cur.execute('SELECT * FROM descansos WHERE usuario_id = %s', (usuario_id,))
+            descanso_activo = cur.fetchone()
 
-                cur.execute('SELECT * FROM descansos WHERE usuario_id = %s', (usuario_id,))
-                descanso_activo = cur.fetchone()
+            ahora = datetime.now()
+            fecha_actual = ahora.date()
+            hora_actual = ahora.time()
 
-                ahora = datetime.now()
-                fecha_actual = ahora.date()
-                hora_actual = ahora.time()
+            if descanso_activo:
+                # SALIR DE DESCANSO
+                inicio = descanso_activo['inicio']
+                duracion = int((ahora - inicio).total_seconds() / 60)
 
-                if descanso_activo:
-                    inicio = descanso_activo['inicio']
-                    duracion = int((ahora - inicio).total_seconds() / 60)
-
-                    cur.execute('''SELECT 1 FROM tiempos_descanso 
-                                  WHERE usuario_id = %s AND fecha = %s AND tipo = 'Comida' ''', 
-                                (usuario_id, fecha_actual))
-                    ya_tuvo_40 = cur.fetchone()
-                    
-                    tipo_descanso = 'Descanso'
-                    if duracion >= 30 and not ya_tuvo_40:
-                        tipo_descanso = 'Comida'
-
-                    cur.execute('''
-                        INSERT INTO tiempos_descanso (usuario_id, tipo, fecha, inicio, fin, duracion_minutos)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    ''', (usuario_id, tipo_descanso, fecha_actual, inicio.time(), hora_actual, duracion))
-                    
-                    cur.execute('DELETE FROM descansos WHERE id = %s', (descanso_activo['id'],))
-                    
-                else:
-                    cur.execute('''
-                        INSERT INTO descansos (usuario_id, tipo, inicio)
-                        VALUES (%s, %s, %s)
-                    ''', (usuario_id, 'Pendiente', ahora))
-
-                conn.commit()
+                cur.execute('''SELECT 1 FROM tiempos_descanso 
+                              WHERE usuario_id = %s AND fecha = %s AND tipo = 'Comida' ''', 
+                            (usuario_id, fecha_actual))
+                ya_tuvo_40 = cur.fetchone()
                 
+                tipo_descanso = 'Descanso'
+                if duracion >= 30 and not ya_tuvo_40:
+                    tipo_descanso = 'Comida'
+
+                cur.execute('''
+                    INSERT INTO tiempos_descanso (usuario_id, tipo, fecha, inicio, fin, duracion_minutos)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                ''', (usuario_id, tipo_descanso, fecha_actual, inicio.time(), hora_actual, duracion))
+                
+                cur.execute('DELETE FROM descansos WHERE id = %s', (descanso_activo['id'],))
+                
+            else:
+                # ENTRAR A DESCANSO
+                cur.execute('''
+                    INSERT INTO descansos (usuario_id, tipo, inicio)
+                    VALUES (%s, %s, %s)
+                ''', (usuario_id, 'Pendiente', ahora))
+
+            conn.commit()
             return redirect(url_for('index'))
 
         # MOSTRAR QUIÉN ESTÁ EN DESCANSO - Calcular en Python para garantizar enteros

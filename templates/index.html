@@ -9,7 +9,7 @@
   <script>
   document.addEventListener('DOMContentLoaded', function () {
     const form = document.querySelector('form');
-    const input = document.querySelector('input[name="tarjeta"]');
+    const input = document.querySelector('input[name="entrada"]'); // Cambiar de "tarjeta" a "entrada"
     if (form && input) {
       form.addEventListener('submit', function () {
         setTimeout(() => {
@@ -73,17 +73,21 @@
     
     <!-- SECCIÓN LECTOR DE TARJETAS -->
     <section class="bg-gray-800 p-4 sm:p-6 rounded-lg w-full max-w-6xl mb-4 sm:mb-6">
-      <h2 class="text-lg sm:text-xl font-bold mb-4 text-center sm:text-left">Lector de Tarjetas</h2>
+      <h2 class="text-lg sm:text-xl font-bold mb-4 text-center sm:text-left">🏷️ Lector de Tarjetas</h2>
       <form method="POST">
         <div class="border border-dashed border-gray-500 p-4 sm:p-8 text-center mb-4 rounded">
-          <p class="text-gray-300 mb-4 text-sm sm:text-base">Deslice la tarjeta (Numero de Rojo)</p>
+          <p class="text-gray-300 mb-4 text-sm sm:text-base">Deslice la tarjeta (Número de Rojo)</p>
           <input 
             type="text" 
-            name="tarjeta" 
+            name="entrada" 
             placeholder="Esperando tarjeta..." 
             class="w-full p-3 sm:p-2 rounded bg-gray-100 text-black text-center text-sm sm:text-base" 
             autofocus 
           />
+          <!-- INSTRUCCIÓN DISCRETA PARA CÓDIGOS -->
+          <p class="text-xs text-gray-400 mt-2">
+            💡 Sin tarjeta: escriba su código (KA22, HP30, VS26, CB29...)
+          </p>
         </div>
       </form>
     </section>
