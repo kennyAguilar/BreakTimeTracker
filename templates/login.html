@@ -12,16 +12,22 @@
       <h1 class="text-2xl font-bold">BreakTime Tracker</h1>
       <p class="text-sm text-gray-300">Control de descansos y comidas</p>
     </div>
+    <!-- NAVEGACIÓN SIMPLIFICADA - Solo Inicio -->
     <nav class="space-x-2">
-      <a href="/" class="bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded">Inicio</a>
-      <a href="/base_datos" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">Base de Datos</a>
-      <a href="/registros" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded">Registros</a>
+      <a href="/" class="bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded transition-colors">
+        🏠 Inicio
+      </a>
     </nav>
   </header>
 
   <main class="flex-grow flex items-center justify-center">
     <div class="bg-gray-800 p-8 rounded-lg shadow-md w-full max-w-md mt-8">
-      <h1 class="text-2xl font-bold mb-6 text-center">Iniciar Sesión</h1>
+      <h1 class="text-2xl font-bold mb-6 text-center">🔐 Iniciar Sesión</h1>
+      
+      <!-- INFORMACIÓN PARA ADMINISTRADORES -->
+      <div class="bg-blue-600 bg-opacity-20 border border-blue-600 rounded-lg p-3 mb-4 text-center">
+        <p class="text-sm text-blue-300">Acceso solo para administradores</p>
+      </div>
       
       <!-- MOSTRAR ERRORES -->
       {% if error %}
@@ -32,18 +38,46 @@
       
       <form method="POST">
         <div class="mb-4">
-          <label for="usuario" class="block text-sm mb-1">Usuario</label>
-          <input type="text" id="usuario" name="usuario" required class="w-full p-2 rounded bg-gray-100 text-black" />
+          <label for="usuario" class="block text-sm font-medium mb-2">👤 Usuario</label>
+          <input 
+            type="text" 
+            id="usuario" 
+            name="usuario" 
+            required 
+            class="w-full p-3 rounded bg-gray-700 border border-gray-600 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            placeholder="Ingresa tu usuario"
+          />
         </div>
         <div class="mb-6">
-          <label for="clave" class="block text-sm mb-1">Contraseña</label>
-          <input type="password" id="clave" name="clave" required class="w-full p-2 rounded bg-gray-100 text-black" />
+          <label for="clave" class="block text-sm font-medium mb-2">🔑 Contraseña</label>
+          <input 
+            type="password" 
+            id="clave" 
+            name="clave" 
+            required 
+            class="w-full p-3 rounded bg-gray-700 border border-gray-600 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            placeholder="Ingresa tu contraseña"
+          />
         </div>
-        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-semibold text-white shadow-lg transition duration-200">
-          🔐 Ingresar al Panel
+        <button 
+          type="submit" 
+          class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-semibold text-white shadow-lg transition-colors"
+        >
+          🔐 Ingresar al Panel Administrativo
         </button>
       </form>
+      
+      <!-- INFORMACIÓN ADICIONAL -->
+      <div class="mt-6 text-center">
+        <p class="text-xs text-gray-400">
+          ¿Necesitas acceso? Contacta al administrador del sistema
+        </p>
+      </div>
     </div>
   </main>
+
+  <footer class="py-4 text-center text-gray-400 text-sm">
+    <p>&copy; 2005 BreakTime Tracker - Sistema de control de descansos</p>
+  </footer>
 </body>
 </html>
