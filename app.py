@@ -84,6 +84,26 @@ def validar_tarjeta(tarjeta_raw):
     
     return tarjeta  # Devolver la tarjeta limpia y válida
 
+def limpiar_tarjeta(tarjeta_raw):
+    """
+    Limpia caracteres especiales de tarjetas SOLO AL GUARDAR
+    Remueve ; al inicio y ? al final automáticamente
+    """
+    if not tarjeta_raw:
+        return ""
+    
+    tarjeta = tarjeta_raw.strip()
+    
+    # Remover ; al inicio si existe
+    if tarjeta.startswith(';'):
+        tarjeta = tarjeta[1:]
+    
+    # Remover ? al final si existe  
+    if tarjeta.endswith('?'):
+        tarjeta = tarjeta[:-1]
+    
+    return tarjeta.strip()
+
 # FILTRO PERSONALIZADO PARA CONVERTIR A ENTEROS
 @app.template_filter('entero')
 def entero_filter(value):
@@ -291,9 +311,12 @@ def base_datos():
         
         if request.method == 'POST':
             nombre = request.form.get('nombre', '').strip()
-            tarjeta = request.form.get('tarjeta', '').strip()
+            tarjeta_raw = request.form.get('tarjeta', '').strip()
             turno = request.form.get('turno', '').strip()
             codigo = request.form.get('codigo', '').strip()
+            
+            # LIMPIAR TARJETA AUTOMÁTICAMENTE AL GUARDAR
+            tarjeta = limpiar_tarjeta(tarjeta_raw)
             
             if not all([nombre, tarjeta, turno, codigo]):
                 # Sin flash - continuar sin mensaje
@@ -344,9 +367,12 @@ def editar_usuario(usuario_id):
         
         if request.method == 'POST':
             nombre = request.form.get('nombre', '').strip()
-            tarjeta = request.form.get('tarjeta', '').strip()
+            tarjeta_raw = request.form.get('tarjeta', '').strip()
             turno = request.form.get('turno', '').strip()
             codigo = request.form.get('codigo', '').strip()
+            
+            # LIMPIAR TARJETA AUTOMÁTICAMENTE AL GUARDAR
+            tarjeta = limpiar_tarjeta(tarjeta_raw)
             
             if all([nombre, tarjeta, turno, codigo]) and len(tarjeta) >= 3 and len(codigo) >= 2:
                 try:

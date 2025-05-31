@@ -129,5 +129,38 @@
   <footer class="mt-8 py-4 text-center text-gray-400 text-sm">
     <p>&copy; 2005 BreakTime Tracker - Sistema de control de descansos</p>
   </footer>
+
+  <!-- Agregar antes de </body> -->
+<script>
+// DESHABILITAR ENTER EN CAMPO TARJETA PARA EDITAR
+document.addEventListener('DOMContentLoaded', function() {
+    const campoTarjeta = document.querySelector('input[name="tarjeta"]');
+    
+    if (campoTarjeta) {
+        // Prevenir ENTER en campo tarjeta
+        campoTarjeta.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' || event.keyCode === 13) {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                // Mover al siguiente campo
+                const siguienteCampo = document.querySelector('select[name="turno"]');
+                if (siguienteCampo) {
+                    siguienteCampo.focus();
+                }
+                
+                return false;
+            }
+        });
+        
+        campoTarjeta.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter' || event.keyCode === 13) {
+                event.preventDefault();
+                return false;
+            }
+        });
+    }
+});
+</script>
 </body>
 </html>
