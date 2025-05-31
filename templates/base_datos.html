@@ -14,13 +14,28 @@
       <h1 class="text-xl sm:text-2xl font-bold">Base de Datos de Usuarios</h1>
       <p class="text-xs sm:text-sm text-gray-300">Gestión completa de asistentes</p>
     </div>
-    <nav class="flex flex-wrap justify-center gap-2">
-      <a href="/" class="bg-gray-700 hover:bg-gray-600 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Inicio</a>
-      <a href="/registros" class="bg-purple-600 hover:bg-purple-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Registros</a>
-      <a href="/reportes" class="bg-green-600 hover:bg-green-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Reportes</a>
-      <a href="/logout" class="bg-red-600 hover:bg-red-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Salir</a>
+    <!-- REEMPLAZAR la navegación actual por esta: -->
+    <nav class="bg-blue-600 p-4">
+      <div class="container mx-auto flex justify-between items-center">
+        <h1 class="text-white text-xl font-bold">🗂️ Gestión de Usuarios</h1>
+        
+        <!-- ELIMINAR botón Inicio, solo mantener opciones seguras -->
+        <div class="space-x-4">
+          <a href="{{ url_for('registros') }}" class="text-white hover:text-blue-200">📋 Registros</a>
+          <a href="{{ url_for('reportes') }}" class="text-white hover:text-blue-200">📊 Reportes</a>
+          <a href="{{ url_for('logout') }}" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">🚪 Cerrar Sesión</a>
+        </div>
+      </div>
     </nav>
   </header>
+
+  <!-- AGREGAR AVISO DE SEGURIDAD -->
+  <div class="bg-gray-100 p-2 border-b">
+    <div class="container mx-auto text-center text-sm text-gray-600">
+      ⚠️ Área administrativa - Para volver al inicio debe 
+      <a href="{{ url_for('logout') }}" class="text-red-600 underline font-bold">cerrar sesión</a>
+    </div>
+  </div>
 
   <main class="container mx-auto px-4 py-8">
     
@@ -209,5 +224,28 @@
   <footer class="mt-8 py-4 text-center text-gray-400 text-sm">
     <p>&copy; 2005 BreakTime Tracker - Sistema de control de descansos</p>
   </footer>
+
+  <!-- AUTO-LOGOUT POR INACTIVIDAD (30 minutos) -->
+<script>
+let tiempoInactividad = 30 * 60 * 1000; // 30 minutos en milisegundos
+let timerLogout;
+
+function resetearTimer() {
+    clearTimeout(timerLogout);
+    timerLogout = setTimeout(() => {
+        alert('Sesión expirada por inactividad. Cerrando sesión...');
+        window.location.href = '{{ url_for("logout") }}';
+    }, tiempoInactividad);
+}
+
+// Detectar actividad del usuario
+document.addEventListener('mousemove', resetearTimer);
+document.addEventListener('keypress', resetearTimer);
+document.addEventListener('click', resetearTimer);
+document.addEventListener('scroll', resetearTimer);
+
+// Iniciar timer al cargar página
+resetearTimer();
+</script>
 </body>
 </html>

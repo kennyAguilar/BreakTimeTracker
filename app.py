@@ -733,12 +733,21 @@ def reportes():
 @app.route('/logout')
 def logout():
     """
-    Como cerrar sesión en una computadora pública.
-    Olvida que el administrador estaba conectado.
+    Cerrar sesión segura y limpiar completamente la sesión.
+    Redirigir siempre a la página principal.
     """
+    # Log de cierre de sesión para auditoría
+    if 'admin_nombre' in session:
+        logger.info(f"Logout: {session['admin_nombre']} cerró sesión")
+    
+    # Limpiar TODA la sesión
     session.clear()
-    # Sin flash - solo redireccionar
-    return redirect(url_for('index'))
+    
+    # Forzar expiración de cookies
+    response = make_response(redirect(url_for('index')))
+    response.set_cookie('session', '', expires=0)
+    
+    return response
 
 # MANEJO DE ERRORES - Como tener un plan cuando algo sale mal
 
