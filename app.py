@@ -650,8 +650,8 @@ def exportar_csv():
 @app.route('/reportes')
 def reportes():
     """
-    Página de reportes y estadísticas
-    Como un dashboard con gráficos y números importantes
+    Página de reportes y estadísticas SEPARADOS por tipo
+    Dashboard con métricas de Comida vs Descanso por separado
     """
     if 'usuario' not in session:
         return redirect(url_for('login', next='reportes'))
@@ -661,57 +661,104 @@ def reportes():
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # ESTADÍSTICAS DE HOY
         hoy = fecha_hora_local().date()
+        inicio_semana = hoy - timedelta(days=hoy.weekday())
+        
+        # ======= ESTADÍSTICAS DE HOY - SEPARADAS =======
         cur.execute('''
             SELECT 
+                -- TOTALES GENERALES
                 COUNT(*) as total_descansos,
                 COALESCE(SUM(duracion_minutos), 0) as total_minutos,
                 COALESCE(AVG(duracion_minutos), 0) as promedio_minutos,
-                COUNT(CASE WHEN tipo = 'Comida' THEN 1 END) as comidas,
-                COUNT(CASE WHEN tipo = 'Descanso' THEN 1 END) as descansos_cortos
+                
+                -- COMIDAS SEPARADAS
+                COUNT(CASE WHEN tipo = 'Comida' THEN 1 END) as total_comidas,
+                COALESCE(SUM(CASE WHEN tipo = 'Comida' THEN duracion_minutos END), 0) as minutos_comida,
+                COALESCE(AVG(CASE WHEN tipo = 'Comida' THEN duracion_minutos END), 0) as promedio_comida,
+                
+                -- DESCANSOS SEPARADOS
+                COUNT(CASE WHEN tipo = 'Descanso' THEN 1 END) as total_descansos_cortos,
+                COALESCE(SUM(CASE WHEN tipo = 'Descanso' THEN duracion_minutos END), 0) as minutos_descanso,
+                COALESCE(AVG(CASE WHEN tipo = 'Descanso' THEN duracion_minutos END), 0) as promedio_descanso
             FROM tiempos_descanso 
             WHERE fecha = %s
         ''', (hoy,))
         
         stats_hoy = cur.fetchone()
         
-        # ESTADÍSTICAS DE LA SEMANA
-        inicio_semana = hoy - timedelta(days=hoy.weekday())
-        cur.execute('''
-            SELECT 
-                COUNT(*) as total_descansos,
-                COALESCE(SUM(duracion_minutos), 0) as total_minutos,
-                COALESCE(AVG(duracion_minutos), 0) as promedio_minutos
-            FROM tiempos_descanso 
-            WHERE fecha >= %s
-        ''', (inicio_semana,))
-        
-        stats_semana = cur.fetchone()
-        
-        # TOP USUARIOS (más descansos esta semana)
+        # ======= TOP USUARIOS QUE MÁS SE EXCEDEN EN TIEMPO =======
         cur.execute('''
             SELECT 
                 u.nombre,
                 u.codigo,
+                u.turno,
                 COUNT(*) as total_descansos,
-                COALESCE(SUM(t.duracion_minutos), 0) as total_minutos
+                COALESCE(SUM(t.duracion_minutos), 0) as total_minutos,
+                
+                -- EXCESOS SEPARADOS POR TIPO
+                COALESCE(SUM(
+                    CASE 
+                        WHEN t.tipo = 'Comida' AND t.duracion_minutos > 40 
+                            THEN t.duracion_minutos - 40
+                        ELSE 0
+                    END
+                ), 0) as exceso_comidas,
+                
+                COALESCE(SUM(
+                    CASE 
+                        WHEN t.tipo = 'Descanso' AND t.duracion_minutos > 20 
+                            THEN t.duracion_minutos - 20
+                        ELSE 0
+                    END
+                ), 0) as exceso_descansos,
+                
+                -- TOTAL DE EXCESOS
+                COALESCE(SUM(
+                    CASE 
+                        WHEN t.tipo = 'Comida' AND t.duracion_minutos > 40 
+                            THEN t.duracion_minutos - 40
+                        WHEN t.tipo = 'Descanso' AND t.duracion_minutos > 20 
+                            THEN t.duracion_minutos - 20
+                        ELSE 0
+                    END
+                ), 0) as total_exceso,
+                
+                -- CONTADORES SEPARADOS
+                COUNT(CASE WHEN t.tipo = 'Comida' AND t.duracion_minutos > 40 THEN 1 END) as comidas_con_exceso,
+                COUNT(CASE WHEN t.tipo = 'Descanso' AND t.duracion_minutos > 20 THEN 1 END) as descansos_con_exceso,
+                
+                -- TOTALES POR TIPO
+                COUNT(CASE WHEN t.tipo = 'Comida' THEN 1 END) as total_comidas,
+                COUNT(CASE WHEN t.tipo = 'Descanso' THEN 1 END) as total_descansos_cortos,
+                COALESCE(SUM(CASE WHEN t.tipo = 'Comida' THEN t.duracion_minutos END), 0) as minutos_comida,
+                COALESCE(SUM(CASE WHEN t.tipo = 'Descanso' THEN t.duracion_minutos END), 0) as minutos_descanso
+                
             FROM tiempos_descanso t
             JOIN usuarios u ON u.id = t.usuario_id
             WHERE t.fecha >= %s
-            GROUP BY u.id, u.nombre, u.codigo
-            ORDER BY total_descansos DESC
-            LIMIT 10
+            GROUP BY u.id, u.nombre, u.codigo, u.turno
+            ORDER BY total_exceso DESC, total_descansos DESC
+            LIMIT 15
         ''', (inicio_semana,))
         
         top_usuarios = cur.fetchall()
         
-        # DESCANSOS POR DÍA (últimos 7 días)
+        # ======= DESCANSOS POR DÍA CON SEPARACIÓN =======
         cur.execute('''
             SELECT 
                 fecha,
-                COUNT(*) as cantidad,
-                COALESCE(SUM(duracion_minutos), 0) as minutos_total
+                -- TOTALES
+                COUNT(*) as cantidad_total,
+                COALESCE(SUM(duracion_minutos), 0) as minutos_total,
+                
+                -- COMIDAS
+                COUNT(CASE WHEN tipo = 'Comida' THEN 1 END) as cantidad_comidas,
+                COALESCE(SUM(CASE WHEN tipo = 'Comida' THEN duracion_minutos END), 0) as minutos_comidas,
+                
+                -- DESCANSOS
+                COUNT(CASE WHEN tipo = 'Descanso' THEN 1 END) as cantidad_descansos,
+                COALESCE(SUM(CASE WHEN tipo = 'Descanso' THEN duracion_minutos END), 0) as minutos_descansos
             FROM tiempos_descanso 
             WHERE fecha >= %s
             GROUP BY fecha
@@ -720,37 +767,18 @@ def reportes():
         
         descansos_por_dia = cur.fetchall()
         
-        # QUIEN ESTÁ EN DESCANSO AHORA
-        cur.execute('''
-            SELECT 
-                u.nombre,
-                u.codigo,
-                d.tipo,
-                d.inicio,
-                EXTRACT(EPOCH FROM (NOW() - d.inicio)) / 60 as minutos_transcurridos
-            FROM descansos d
-            JOIN usuarios u ON u.id = d.usuario_id
-            ORDER BY d.inicio DESC
-        ''')
-        
-        activos_ahora = cur.fetchall()
-        
         return render_template('reportes.html',
                              stats_hoy=stats_hoy,
-                             stats_semana=stats_semana,
                              top_usuarios=top_usuarios,
                              descansos_por_dia=descansos_por_dia,
-                             activos_ahora=activos_ahora,
                              fecha_hoy=hoy.strftime('%Y-%m-%d'))
         
     except Exception as e:
         logger.error(f"Error en reportes: {e}")
         return render_template('reportes.html', 
                              stats_hoy=None, 
-                             stats_semana=None,
                              top_usuarios=[], 
-                             descansos_por_dia=[], 
-                             activos_ahora=[])
+                             descansos_por_dia=[])
     finally:
         if conn:
             conn.close()
