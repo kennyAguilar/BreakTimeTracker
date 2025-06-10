@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="300">
   <title>BreakTime Tracker</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
@@ -45,11 +44,31 @@
           el.className = 'px-2 sm:px-4 py-2 text-red-400';
         }
       });
-    }
-    
-    // Actualizar inmediatamente y luego cada minuto
+    }    // Actualizar inmediatamente y luego cada minuto
     actualizarTiempos();
     setInterval(actualizarTiempos, 60000);
+    
+    // Auto-refresh solo durante horario de trabajo (19:00 a 05:00)
+    function verificarHorarioYRefrescar() {
+      const ahora = new Date();
+      const hora = ahora.getHours();
+      
+      // Horario de trabajo: 19:00 a 05:00 (incluye cruce de medianoche)
+      const enHorarioTrabajo = hora >= 19 || hora < 5;
+      
+      if (enHorarioTrabajo) {
+        // Refrescar cada 5 minutos durante horario de trabajo
+        setTimeout(function() {
+          window.location.reload();
+        }, 300000); // 300 segundos = 5 minutos
+      } else {
+        // Verificar cada hora si ya es horario de trabajo
+        setTimeout(verificarHorarioYRefrescar, 3600000); // 1 hora
+      }
+    }
+    
+    // Iniciar verificación de horario
+    verificarHorarioYRefrescar();
   });
   </script>
 </head>

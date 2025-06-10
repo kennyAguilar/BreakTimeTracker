@@ -1,77 +1,74 @@
-# 🔄 Auto-Refresh Implementado - BreakTimeTracker
+# 🔄 Auto-Refresh Horario Específico - BreakTimeTracker
 
 ## ✅ IMPLEMENTACIÓN COMPLETADA
 
-Se ha agregado auto-refresh cada 5 minutos (300 segundos) a todas las páginas relevantes del sistema BreakTimeTracker.
+Se ha implementado auto-refresh inteligente que solo funciona durante el horario de trabajo (19:00 a 05:00 horas) únicamente en la página principal.
 
-### 📄 Templates Actualizados
+### 📄 Templates con Auto-Refresh
 
-**Templates con auto-refresh agregado:**
-1. ✅ `index.html` - Página principal (control de descansos)
-2. ✅ `registros.html` - Historial de registros
-3. ✅ `reportes.html` - Dashboard y reportes
-4. ✅ `base_datos.html` - Gestión de usuarios
-5. ✅ `editar_usuario.html` - Edición de usuarios
+**Template con auto-refresh horario específico:**
+1. ✅ `index.html` - Página principal (solo de 19:00 a 05:00 horas)
 
-**Templates SIN auto-refresh (no necesario):**
+**Templates SIN auto-refresh:**
+- ❌ `registros.html` - Sin auto-refresh automático
+- ❌ `reportes.html` - Sin auto-refresh automático  
+- ❌ `base_datos.html` - Sin auto-refresh automático
+- ❌ `editar_usuario.html` - Sin auto-refresh automático
 - ❌ `login.html` - Página de login estática
 - ❌ `error.html` - Página de error estática
 
 ### 🔧 Implementación Técnica
 
-**Meta tag agregado:**
-```html
-<meta http-equiv="refresh" content="300">
+**JavaScript inteligente:**
+```javascript
+// Auto-refresh solo durante horario de trabajo (19:00 a 05:00)
+function verificarHorarioYRefrescar() {
+  const ahora = new Date();
+  const hora = ahora.getHours();
+  
+  // Horario de trabajo: 19:00 a 05:00 (incluye cruce de medianoche)
+  const enHorarioTrabajo = hora >= 19 || hora < 5;
+  
+  if (enHorarioTrabajo) {
+    // Refrescar cada 5 minutos durante horario de trabajo
+    setTimeout(function() {
+      window.location.reload();
+    }, 300000);
+  } else {
+    // Verificar cada hora si ya es horario de trabajo
+    setTimeout(verificarHorarioYRefrescar, 3600000);
+  }
+}
 ```
-
-**Ubicación:**
-- Agregado en la sección `<head>` de cada template
-- Posicionado después del meta viewport para mantener consistencia
 
 ### ⏰ Comportamiento del Auto-Refresh
 
-**Frecuencia:** Cada 5 minutos (300 segundos)
+**Horario activo:** 19:00 a 05:00 horas (10 horas de trabajo)
+**Frecuencia:** Cada 5 minutos durante horario de trabajo
+**Fuera de horario:** Verifica cada hora si debe activarse
 
-**Beneficios:**
-- ✅ Mantiene datos actualizados automáticamente
-- ✅ Perfecto para jornadas nocturnas de 21 horas continuas
-- ✅ Sincronización automática entre múltiples usuarios
-- ✅ Actualizaciones de estado de descansos en tiempo real
-- ✅ Reportes y estadísticas siempre actualizados
+### 🌙 Beneficios del Sistema Horario
 
-**Páginas con mayor beneficio:**
-1. **`index.html`** - Estado actual de descansos, tiempos restantes
-2. **`registros.html`** - Nuevos registros de entrada/salida
-3. **`reportes.html`** - Estadísticas de jornada actual actualizada
-4. **`base_datos.html`** - Estado de usuarios y modificaciones
-5. **`editar_usuario.html`** - Cambios realizados por otros administradores
+**Durante horario de trabajo (19:00-05:00):**
+- ✅ Página principal actualizada cada 5 minutos
+- ✅ Estado de descansos siempre actual
+- ✅ Tiempos restantes actualizados automáticamente
+- ✅ Sincronización automática con cambios
 
-### 🌙 Compatibilidad con Jornadas Nocturnas
+**Fuera de horario de trabajo (05:00-19:00):**
+- ✅ Sin refrescos innecesarios para ahorrar recursos
+- ✅ Verificación horaria automática para reactivación
+- ✅ Funciona normalmente con interacción manual
 
-El auto-refresh es especialmente útil para el sistema de jornadas nocturnas:
-- **Duración:** 09:00 AM - 06:00 AM (21 horas continuas)
-- **Actualizaciones:** Cada 5 minutos durante toda la jornada
-- **Cruces de medianoche:** Datos actualizados automáticamente
-- **Sincronización:** Múltiples supervisores ven datos consistentes
+### 📊 Impacto Optimizado
 
-### 📊 Impacto en Rendimiento
-
-**Carga del servidor:** Mínima
-- Refresh estándar HTML nativo
-- No consume recursos adicionales de JavaScript
-- Compatible con todos los navegadores
+**Ventajas:**
+- ✅ Auto-refresh solo cuando es necesario
+- ✅ Ahorro de recursos durante horas inactivas
+- ✅ Mantiene datos actualizados durante operación
+- ✅ No interfiere con otras páginas del sistema
 
 **Experiencia del usuario:**
-- ✅ Datos siempre actualizados
-- ✅ No requiere recargas manuales
-- ✅ Funcionamiento transparente
-- ⚠️ Posible pérdida de datos en formularios no guardados
-
-### 🎯 Conclusión
-
-La implementación de auto-refresh cada 5 minutos completa el sistema de jornadas nocturnas continuas, asegurando que todos los usuarios vean información actualizada durante las 21 horas de operación sin intervención manual.
-
-**Estado:** ✅ COMPLETADO
-**Fecha:** $(Get-Date)
-**Archivos modificados:** 5 templates HTML
-**Funcionalidad:** 100% operativa
+- ✅ Página principal siempre actualizada durante trabajo
+- ✅ Otras páginas funcionan sin interrupciones
+- ✅ Rendimiento optimizado fuera de horario
