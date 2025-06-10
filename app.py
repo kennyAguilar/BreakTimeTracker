@@ -7,7 +7,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, m
 # session = recordar quien está conectado
 # make_response = para crear respuestas personalizadas (como CSV)
 
-from datetime import datetime, timedelta  # Para trabajar con fechas y horas
+from datetime import datetime, timedelta, time, date  # Para trabajar con fechas y horas
 import pytz  # Para manejo de zonas horarias
 import psycopg2  # Para conectarse a la base de datos PostgreSQL
 import psycopg2.extras  # Herramientas extra para la base de datos
@@ -136,6 +136,176 @@ def entero_filter(value):
     except (ValueError, TypeError):
         return 0
 
+# ========== SISTEMA DE JORNADAS NOCTURNAS CONTINUAS (09:00 - 06:00) ==========
+
+def obtener_horarios_jornada(fecha=None):
+    """
+    Calcula los horarios de una jornada nocturna continua de 21 horas.
+    Jornada estándar: 09:00 - 06:00 del día siguiente
+    
+    Retorna:
+        dict: {
+            'inicio': time(9, 0),     # Siempre 09:00
+            'fin': time(6, 0),        # Siempre 06:00  
+            'es_nocturna': True,      # Siempre True para este sistema
+            'duracion_horas': 21      # Siempre 21 horas
+        }
+    """
+    # Para simplicidad, siempre retornamos la jornada estándar
+    # En el futuro se puede expandir para horarios especiales
+    
+    return {
+        'inicio': time(9, 0),      # 09:00 AM
+        'fin': time(6, 0),         # 06:00 AM del día siguiente  
+        'es_nocturna': True,
+        'duracion_horas': 21
+    }
+
+def obtener_fecha_jornada_unificada(momento=None):
+    """
+    Determina la fecha de jornada unificada para empleados que trabajan 
+    en horarios nocturnos que cruzan medianoche.
+    
+    LÓGICA:
+    - Jornada 09:00 - 06:00 del día siguiente
+    - Si es antes de las 06:00 AM → pertenece a la jornada del día ANTERIOR
+    - Si es 06:00 AM o después → pertenece a la jornada del día ACTUAL
+    
+    Ejemplos:
+    - 2025-01-15 05:30 → fecha_jornada = 2025-01-14 (jornada anterior)
+    - 2025-01-15 09:15 → fecha_jornada = 2025-01-15 (jornada actual)
+    - 2025-01-15 23:45 → fecha_jornada = 2025-01-15 (jornada actual)
+    """
+    if momento is None:
+        momento = fecha_hora_local()
+    
+    fecha_actual = momento.date()
+    hora_actual = momento.time()
+    
+    # Límite: 06:00 AM
+    limite_fin_jornada = time(6, 0)
+    
+    if hora_actual < limite_fin_jornada:
+        # Es madrugada, pertenece a la jornada del día anterior
+        fecha_jornada = fecha_actual - timedelta(days=1)
+    else:
+        # Es después de las 06:00, pertenece a la jornada del día actual
+        fecha_jornada = fecha_actual
+    
+    return fecha_jornada
+
+def obtener_reglas_descanso_por_rol(turno):
+    """
+    Define las reglas de descanso según el tipo de empleado.
+    
+    🎰 TODOS LOS EMPLEADOS TIENEN LOS MISMOS LÍMITES DE DESCANSO:
+    - Comida: 40 minutos (para todos)
+    - Descanso: 20 minutos (para todos)
+    
+    Lo que varía son las horas de trabajo:
+    - Full Time: 9 horas de trabajo
+    - Part-time: 5 horas de trabajo  
+    - Llamado: 6 horas de trabajo
+    
+    Args:
+        turno (str): 'Full', 'Part-time', 'Llamado'
+    
+    Returns:
+        dict: {
+            'limite_comida': int,      # Minutos máximos para comida (40 para todos)
+            'limite_descanso': int,    # Minutos máximos para descanso (20 para todos)
+            'horas_trabajo': int,      # Horas de trabajo según el tipo
+            'descripcion': str         # Descripción legible
+        }
+    """
+    reglas = {
+        'Full': {
+            'limite_comida': 40,
+            'limite_descanso': 20,
+            'horas_trabajo': 9,
+            'descripcion': 'Full Time (9h trabajo, 40/20 min)'
+        },
+        'Part-time': {
+            'limite_comida': 40,
+            'limite_descanso': 20,
+            'horas_trabajo': 5,
+            'descripcion': 'Part-time (5h trabajo, 40/20 min)'
+        },
+        'Llamado': {
+            'limite_comida': 40,
+            'limite_descanso': 20,
+            'horas_trabajo': 6,
+            'descripcion': 'Llamado (6h trabajo, 40/20 min)'
+        }
+    }
+    
+    return reglas.get(turno, reglas['Full'])  # Default a Full Time si no se encuentra
+
+def puede_tomar_descanso(usuario_id, tipo_descanso, conn):
+    """
+    Valida si un empleado puede tomar un descanso según las reglas de jornada nocturna.
+    
+    🎰 CASINO - OPERACIÓN 24/7 SIN PARAR
+    RESTRICCIONES SIMPLIFICADAS:
+    1. Horario permitido: 09:00 - 06:00 del día siguiente (jornada nocturna de 21 horas)
+    2. Máximo 1 comida por jornada unificada
+    
+    Args:
+        usuario_id (int): ID del usuario
+        tipo_descanso (str): 'Comida' o 'Descanso'  
+        conn: Conexión a la base de datos
+    
+    Returns:
+        dict: {
+            'permitido': bool,     # True si puede tomar descanso
+            'razon': str          # Explicación del resultado
+        }
+    """
+    momento_actual = fecha_hora_local()
+    fecha_jornada = obtener_fecha_jornada_unificada(momento_actual)
+    hora_actual = momento_actual.time()
+    horarios = obtener_horarios_jornada()
+    
+    # 1. VERIFICAR HORARIO DE JORNADA NOCTURNA (09:00 - 06:00)
+    inicio_jornada = horarios['inicio']  # 09:00
+    fin_jornada = horarios['fin']        # 06:00
+    
+    # Lógica para horario que cruza medianoche
+    if hora_actual >= inicio_jornada or hora_actual < fin_jornada:
+        # Está dentro del horario permitido (09:00-23:59 o 00:00-05:59)
+        pass
+    else:
+        # Fuera del horario de jornada (06:00 - 08:59) 
+        return {
+            'permitido': False,
+            'razon': f'🎰 Fuera de horario de jornada. Casino opera: {inicio_jornada.strftime("%H:%M")} - {fin_jornada.strftime("%H:%M")} del día siguiente.'
+        }
+    
+    # 2. VERIFICAR LÍMITE DE COMIDAS POR JORNADA (único límite real)
+    if tipo_descanso == 'Comida':
+        cur = conn.cursor()
+        cur.execute('''
+            SELECT COUNT(*) 
+            FROM tiempos_descanso 
+            WHERE usuario_id = %s 
+            AND fecha = %s 
+            AND tipo = 'Comida'
+        ''', (usuario_id, fecha_jornada))
+        
+        comidas_hoy = cur.fetchone()[0]
+        
+        if comidas_hoy >= 1:
+            return {
+                'permitido': False,
+                'razon': '🍽️ Ya tomó su comida para esta jornada. Solo 1 comida por jornada de 21 horas.'
+            }
+    
+    # 3. ✅ TODO ESTÁ BIEN - CASINO NUNCA PARA, DESCANSO PERMITIDO
+    return {
+        'permitido': True,
+        'razon': f'🎰 Descanso permitido. Casino operando 24/7 - Jornada nocturna activa.'
+    }
+
 # PÁGINA PRINCIPAL - Sin mensajes ni notificaciones
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -173,55 +343,68 @@ def index():
 
             # Si no se encontró usuario con ninguno de los métodos
             if not usuario:
-                return redirect(url_for('index'))
-
-            # PROCESAMIENTO DE ENTRADA/SALIDA DE DESCANSO
+                return redirect(url_for('index'))            # PROCESAMIENTO DE ENTRADA/SALIDA DE DESCANSO
             usuario_id = usuario['id']
             nombre_usuario = usuario['nombre']
 
             cur.execute('SELECT * FROM descansos WHERE usuario_id = %s', (usuario_id,))
             descanso_activo = cur.fetchone()
-
+            
             ahora = fecha_hora_local()
-            fecha_actual = ahora.date() 
+            
+            # ===== USAR FECHA JORNADA UNIFICADA PARA CRUCES DE MEDIANOCHE =====
+            fecha_jornada = obtener_fecha_jornada_unificada(ahora)
             hora_actual = ahora.time()
+            
+            # ===== OBTENER REGLAS DINÁMICAS POR ROL =====
+            reglas = obtener_reglas_descanso_por_rol(usuario['turno'])
 
             if descanso_activo:
-                # SALIR DE DESCANSO
+                # ===== SALIR DE DESCANSO CON REGLAS POR ROL =====
                 inicio = descanso_activo['inicio']
                 duracion = int((ahora - inicio).total_seconds() / 60)
 
+                # Verificar si ya tuvo comida en esta JORNADA UNIFICADA
                 cur.execute('''SELECT 1 FROM tiempos_descanso 
                               WHERE usuario_id = %s AND fecha = %s AND tipo = 'Comida' ''', 
-                            (usuario_id, fecha_actual))
-                ya_tuvo_40 = cur.fetchone()
+                            (usuario_id, fecha_jornada))
+                ya_tuvo_comida = cur.fetchone()
                 
+                # LÓGICA INTELIGENTE: determinar tipo según duración y reglas del rol
                 tipo_descanso = 'Descanso'
-                if duracion >= 30 and not ya_tuvo_40:
+                  # Si duración >= 30 min Y no ha tenido comida → considerar como Comida
+                if duracion >= 30 and not ya_tuvo_comida:
                     tipo_descanso = 'Comida'
 
                 cur.execute('''
                     INSERT INTO tiempos_descanso (usuario_id, tipo, fecha, inicio, fin, duracion_minutos)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                ''', (usuario_id, tipo_descanso, fecha_actual, inicio.time(), hora_actual, duracion))
+                ''', (usuario_id, tipo_descanso, fecha_jornada, inicio.time(), hora_actual, duracion))
                 
                 cur.execute('DELETE FROM descansos WHERE id = %s', (descanso_activo['id'],))
                 
             else:
-                # ENTRAR A DESCANSO
-                cur.execute('''
-                    INSERT INTO descansos (usuario_id, tipo, inicio)
-                    VALUES (%s, %s, %s)
-                ''', (usuario_id, 'Pendiente', ahora))
+                # ===== ENTRAR A DESCANSO CON VALIDACIONES =====
+                # Verificar si puede tomar descanso según reglas de casino 24/7
+                validacion = puede_tomar_descanso(usuario_id, 'Pendiente', conn)
+                
+                if validacion['permitido']:
+                    cur.execute('''
+                        INSERT INTO descansos (usuario_id, tipo, inicio)
+                        VALUES (%s, %s, %s)
+                    ''', (usuario_id, 'Pendiente', ahora))
+                else:
+                    # Si no puede tomar descanso, solo redirigir sin insertar
+                    # En el futuro se podría mostrar el mensaje de validacion['razon']
+                    pass
 
             conn.commit()
-            return redirect(url_for('index'))
-
-        # MOSTRAR QUIÉN ESTÁ EN DESCANSO - Calcular en Python para garantizar enteros
+            return redirect(url_for('index'))        # ===== MOSTRAR QUIÉN ESTÁ EN DESCANSO CON REGLAS DINÁMICAS POR ROL =====
         cur.execute('''
         SELECT 
             u.nombre,
             u.codigo,
+            u.turno,
             d.tipo,
             d.inicio
         FROM descansos d
@@ -232,21 +415,32 @@ def index():
         activos_raw = cur.fetchall()
         activos = []
         
-        # Calcular tiempo restante en Python para garantizar enteros
+        # ===== CALCULAR TIEMPO RESTANTE CON REGLAS DINÁMICAS =====
         ahora = fecha_hora_local()
         for descanso in activos_raw:
-            transcurrido_segundos = (ahora - descanso['inicio']).total_seconds()
-            transcurrido_minutos = int(transcurrido_segundos / 60)  # Convertir a entero
-            limite = 40 if descanso['tipo'] == 'Comida' else 20
-            tiempo_restante = max(limite - transcurrido_minutos, 0)  # No negativos
+            # Obtener reglas específicas por rol del empleado
+            reglas = obtener_reglas_descanso_por_rol(descanso['turno'])
             
-            # Crear nuevo diccionario con el tiempo calculado como entero
+            transcurrido_segundos = (ahora - descanso['inicio']).total_seconds()
+            transcurrido_minutos = int(transcurrido_segundos / 60)
+              # Usar límites dinámicos según el rol y tipo de descanso
+            if descanso['tipo'] == 'Comida':
+                limite = reglas['limite_comida']  # 40 min para todos
+            else:
+                limite = reglas['limite_descanso']  # 20 min para todos
+            
+            tiempo_restante = max(limite - transcurrido_minutos, 0)
+            
+            # Crear diccionario con información completa
             descanso_completo = {
                 'nombre': descanso['nombre'],
                 'codigo': descanso['codigo'],
+                'turno': descanso['turno'],
                 'tipo': descanso['tipo'],
                 'inicio': descanso['inicio'],
-                'tiempo_restante': tiempo_restante  # Ya es entero
+                'tiempo_restante': tiempo_restante,
+                'limite_maximo': limite,  # Para debugging/info adicional
+                'descripcion_regla': reglas['descripcion']  # Ej: "Full Time (40/20 min)"
             }
             activos.append(descanso_completo)
         
@@ -478,14 +672,35 @@ def registros():
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
-        # OBTENER PARÁMETROS DE FILTRO
-        fecha_inicio = request.args.get('fecha_inicio', '')
-        fecha_fin = request.args.get('fecha_fin', '')
+          # OBTENER PARÁMETROS DE FILTRO MEJORADOS PARA JORNADAS
+        jornada_inicio = request.args.get('jornada_inicio', '')
+        jornada_fin = request.args.get('jornada_fin', '')
         usuario_filtro = request.args.get('usuario', '')
         tipo_filtro = request.args.get('tipo', '')
         
-        # CONSTRUIR CONSULTA DINÁMICA CON FILTROS
+        # FILTROS RÁPIDOS POR JORNADA (nuevos)
+        filtro_rapido = request.args.get('filtro_rapido', '')
+        
+        # CALCULAR FECHAS DE JORNADA SEGÚN FILTRO RÁPIDO
+        fecha_jornada_actual = obtener_fecha_jornada_unificada()
+        
+        if filtro_rapido == 'hoy':
+            jornada_inicio = fecha_jornada_actual.strftime('%Y-%m-%d')
+            jornada_fin = fecha_jornada_actual.strftime('%Y-%m-%d')
+        elif filtro_rapido == 'ayer':
+            ayer = fecha_jornada_actual - timedelta(days=1)
+            jornada_inicio = ayer.strftime('%Y-%m-%d')
+            jornada_fin = ayer.strftime('%Y-%m-%d')
+        elif filtro_rapido == 'semana':
+            inicio_semana = fecha_jornada_actual - timedelta(days=fecha_jornada_actual.weekday())
+            jornada_inicio = inicio_semana.strftime('%Y-%m-%d')
+            jornada_fin = fecha_jornada_actual.strftime('%Y-%m-%d')
+        elif filtro_rapido == 'mes':
+            primer_dia_mes = fecha_jornada_actual.replace(day=1)
+            jornada_inicio = primer_dia_mes.strftime('%Y-%m-%d')
+            jornada_fin = fecha_jornada_actual.strftime('%Y-%m-%d')
+        
+        # CONSTRUIR CONSULTA BÁSICA Y FILTRAR POR JORNADA EN PYTHON
         consulta_base = '''
             SELECT u.nombre, u.codigo, t.tipo, t.fecha, t.inicio, t.fin, t.duracion_minutos
             FROM tiempos_descanso t
@@ -493,24 +708,11 @@ def registros():
         '''
         
         condiciones = []
-        parametros = []
-        
-        # FILTRO POR FECHA INICIO
-        if fecha_inicio:
-            condiciones.append("t.fecha >= %s")
-            parametros.append(fecha_inicio)
-        
-        # FILTRO POR FECHA FIN
-        if fecha_fin:
-            condiciones.append("t.fecha <= %s")
-            parametros.append(fecha_fin)
-            
-        # FILTRO POR USUARIO
+        parametros = []        # FILTROS BÁSICOS (sin jornada unificada en SQL)
         if usuario_filtro:
             condiciones.append("LOWER(u.nombre) LIKE LOWER(%s)")
             parametros.append(f'%{usuario_filtro}%')
             
-        # FILTRO POR TIPO
         if tipo_filtro:
             condiciones.append("t.tipo = %s")
             parametros.append(tipo_filtro)
@@ -522,7 +724,31 @@ def registros():
         consulta_base += " ORDER BY t.fecha DESC, t.inicio DESC LIMIT 500"
         
         cur.execute(consulta_base, parametros)
-        historial = cur.fetchall()
+        todos_registros = cur.fetchall()
+          # FILTRAR POR JORNADA UNIFICADA EN PYTHON
+        historial = []
+        for registro in todos_registros:
+            # Calcular fecha de jornada unificada para este registro
+            momento_registro = datetime.combine(registro['fecha'], registro['inicio'])
+            fecha_jornada_registro = obtener_fecha_jornada_unificada(momento_registro)
+            
+            # Aplicar filtros de fecha de jornada si existen
+            incluir = True
+            if jornada_inicio:
+                jornada_inicio_obj = datetime.strptime(jornada_inicio, '%Y-%m-%d').date()
+                if fecha_jornada_registro < jornada_inicio_obj:
+                    incluir = False
+                    
+            if jornada_fin and incluir:
+                jornada_fin_obj = datetime.strptime(jornada_fin, '%Y-%m-%d').date()
+                if fecha_jornada_registro > jornada_fin_obj:
+                    incluir = False
+            
+            if incluir:
+                # Agregar la fecha de jornada calculada al registro
+                registro_completo = dict(registro)
+                registro_completo['fecha_jornada'] = fecha_jornada_registro
+                historial.append(registro_completo)
         
         # OBTENER LISTA DE USUARIOS PARA EL FILTRO
         cur.execute('SELECT DISTINCT nombre FROM usuarios ORDER BY nombre')
@@ -547,12 +773,12 @@ def registros():
         return render_template('registros.html', 
                              historial=historial,
                              usuarios_disponibles=usuarios_disponibles,
-                             estadisticas=estadisticas,
-                             filtros={
-                                 'fecha_inicio': fecha_inicio,
-                                 'fecha_fin': fecha_fin,
+                             estadisticas=estadisticas,                             filtros={
+                                 'jornada_inicio': jornada_inicio,
+                                 'jornada_fin': jornada_fin,
                                  'usuario': usuario_filtro,
-                                 'tipo': tipo_filtro
+                                 'tipo': tipo_filtro,
+                                 'filtro_rapido': filtro_rapido
                              })
         
     except Exception as e:
@@ -577,14 +803,31 @@ def exportar_csv():
     try:
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
-        # OBTENER LOS MISMOS FILTROS QUE EN REGISTROS
-        fecha_inicio = request.args.get('fecha_inicio', '')
-        fecha_fin = request.args.get('fecha_fin', '')
+          # OBTENER LOS MISMOS FILTROS QUE EN REGISTROS (MEJORADOS PARA JORNADAS)
+        jornada_inicio = request.args.get('jornada_inicio', '')
+        jornada_fin = request.args.get('jornada_fin', '')
         usuario_filtro = request.args.get('usuario', '')
         tipo_filtro = request.args.get('tipo', '')
+        filtro_rapido = request.args.get('filtro_rapido', '')
         
-        # USAR LA MISMA LÓGICA DE FILTROS
+        # APLICAR FILTROS RÁPIDOS SI EXISTEN
+        fecha_jornada_actual = obtener_fecha_jornada_unificada()
+        
+        if filtro_rapido == 'hoy':
+            jornada_inicio = fecha_jornada_actual.strftime('%Y-%m-%d')
+            jornada_fin = fecha_jornada_actual.strftime('%Y-%m-%d')
+        elif filtro_rapido == 'ayer':
+            ayer = fecha_jornada_actual - timedelta(days=1)
+            jornada_inicio = ayer.strftime('%Y-%m-%d')
+            jornada_fin = ayer.strftime('%Y-%m-%d')
+        elif filtro_rapido == 'semana':
+            inicio_semana = fecha_jornada_actual - timedelta(days=fecha_jornada_actual.weekday())
+            jornada_inicio = inicio_semana.strftime('%Y-%m-%d')
+            jornada_fin = fecha_jornada_actual.strftime('%Y-%m-%d')
+        elif filtro_rapido == 'mes':
+            primer_dia_mes = fecha_jornada_actual.replace(day=1)
+            jornada_inicio = primer_dia_mes.strftime('%Y-%m-%d')
+            jornada_fin = fecha_jornada_actual.strftime('%Y-%m-%d')# USAR LA MISMA LÓGICA DE FILTROS (básicos primero)
         consulta_base = '''
             SELECT u.nombre, u.codigo, t.tipo, t.fecha, t.inicio, t.fin, t.duracion_minutos
             FROM tiempos_descanso t
@@ -593,14 +836,6 @@ def exportar_csv():
         
         condiciones = []
         parametros = []
-        
-        if fecha_inicio:
-            condiciones.append("t.fecha >= %s")
-            parametros.append(fecha_inicio)
-        
-        if fecha_fin:
-            condiciones.append("t.fecha <= %s")
-            parametros.append(fecha_fin)
             
         if usuario_filtro:
             condiciones.append("LOWER(u.nombre) LIKE LOWER(%s)")
@@ -616,18 +851,42 @@ def exportar_csv():
         consulta_base += " ORDER BY t.fecha DESC, t.inicio DESC"
         
         cur.execute(consulta_base, parametros)
-        datos = cur.fetchall()
+        todos_registros = cur.fetchall()
+        
+        # FILTRAR POR JORNADA UNIFICADA EN PYTHON
+        datos = []
+        for registro in todos_registros:
+            # Calcular fecha de jornada unificada
+            momento_registro = datetime.combine(registro['fecha'], registro['inicio'])
+            fecha_jornada_registro = obtener_fecha_jornada_unificada(momento_registro)
+              # Aplicar filtros de fecha de jornada si existen
+            incluir = True
+            if jornada_inicio:
+                jornada_inicio_obj = datetime.strptime(jornada_inicio, '%Y-%m-%d').date()
+                if fecha_jornada_registro < jornada_inicio_obj:
+                    incluir = False
+                    
+            if jornada_fin and incluir:
+                jornada_fin_obj = datetime.strptime(jornada_fin, '%Y-%m-%d').date()
+                if fecha_jornada_registro > jornada_fin_obj:
+                    incluir = False
+            
+            if incluir:
+                # Agregar la fecha de jornada calculada
+                registro_completo = dict(registro)
+                registro_completo['fecha_jornada'] = fecha_jornada_registro
+                datos.append(registro_completo)
         
         # CREAR ARCHIVO CSV EN MEMORIA
         output = StringIO()
         writer = csv.writer(output)
-        
-        # ESCRIBIR ENCABEZADOS
+          # ESCRIBIR ENCABEZADOS
         writer.writerow([
             'Nombre',
             'Código',
             'Tipo Descanso',
-            'Fecha',
+            'Fecha Calendario',
+            'Fecha Jornada',
             'Hora Inicio',
             'Hora Fin',
             'Duración (minutos)',
@@ -642,6 +901,7 @@ def exportar_csv():
                 registro['codigo'],
                 registro['tipo'],
                 registro['fecha'].strftime('%Y-%m-%d'),
+                registro['fecha_jornada'].strftime('%Y-%m-%d'),
                 registro['inicio'].strftime('%H:%M'),
                 registro['fin'].strftime('%H:%M'),
                 registro['duracion_minutos'],
@@ -681,117 +941,184 @@ def reportes():
         conn = get_db()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        hoy = fecha_hora_local().date()
-        inicio_semana = hoy - timedelta(days=hoy.weekday())
+        # ===== OBTENER FECHA DE JORNADA UNIFICADA ACTUAL =====
+        fecha_jornada_actual = obtener_fecha_jornada_unificada()
+        inicio_semana = fecha_jornada_actual - timedelta(days=fecha_jornada_actual.weekday())
         
-        # ======= ESTADÍSTICAS DE HOY - SEPARADAS =======
+        # ======= ESTADÍSTICAS DE LA JORNADA ACTUAL - CALCULADAS EN PYTHON =======
         cur.execute('''
-            SELECT 
-                -- TOTALES GENERALES
-                COUNT(*) as total_descansos,
-                COALESCE(SUM(duracion_minutos), 0) as total_minutos,
-                COALESCE(AVG(duracion_minutos), 0) as promedio_minutos,
-                
-                -- COMIDAS SEPARADAS
-                COUNT(CASE WHEN tipo = 'Comida' THEN 1 END) as total_comidas,
-                COALESCE(SUM(CASE WHEN tipo = 'Comida' THEN duracion_minutos END), 0) as minutos_comida,
-                COALESCE(AVG(CASE WHEN tipo = 'Comida' THEN duracion_minutos END), 0) as promedio_comida,
-                
-                -- DESCANSOS SEPARADOS
-                COUNT(CASE WHEN tipo = 'Descanso' THEN 1 END) as total_descansos_cortos,
-                COALESCE(SUM(CASE WHEN tipo = 'Descanso' THEN duracion_minutos END), 0) as minutos_descanso,
-                COALESCE(AVG(CASE WHEN tipo = 'Descanso' THEN duracion_minutos END), 0) as promedio_descanso
+            SELECT tipo, duracion_minutos, fecha, inicio
             FROM tiempos_descanso 
-            WHERE fecha = %s
-        ''', (hoy,))
+            ORDER BY fecha DESC, inicio DESC
+        ''')
         
-        stats_hoy = cur.fetchone()
+        todos_los_registros = cur.fetchall()
         
-        # ======= TOP USUARIOS QUE MÁS SE EXCEDEN EN TIEMPO =======
+        # Filtrar registros de la jornada actual
+        registros_jornada_actual = []
+        for registro in todos_los_registros:
+            momento_registro = datetime.combine(registro['fecha'], registro['inicio'])
+            fecha_jornada_registro = obtener_fecha_jornada_unificada(momento_registro)
+            
+            if fecha_jornada_registro == fecha_jornada_actual:
+                registros_jornada_actual.append(registro)
+        
+        # Calcular estadísticas
+        if registros_jornada_actual:
+            total_descansos = len(registros_jornada_actual)
+            total_minutos = sum(r['duracion_minutos'] for r in registros_jornada_actual)
+            promedio_minutos = total_minutos / total_descansos if total_descansos > 0 else 0
+            
+            # Separar por tipo
+            comidas = [r for r in registros_jornada_actual if r['tipo'] == 'Comida']
+            descansos = [r for r in registros_jornada_actual if r['tipo'] == 'Descanso']
+            
+            total_comidas = len(comidas)
+            minutos_comida = sum(r['duracion_minutos'] for r in comidas)
+            promedio_comida = minutos_comida / total_comidas if total_comidas > 0 else 0
+            
+            total_descansos_cortos = len(descansos)
+            minutos_descanso = sum(r['duracion_minutos'] for r in descansos)
+            promedio_descanso = minutos_descanso / total_descansos_cortos if total_descansos_cortos > 0 else 0
+        else:
+            total_descansos = total_minutos = promedio_minutos = 0
+            total_comidas = minutos_comida = promedio_comida = 0
+            total_descansos_cortos = minutos_descanso = promedio_descanso = 0
+        
+        # Crear objeto de estadísticas como DictCursor
+        stats_hoy = {
+            'total_descansos': total_descansos,
+            'total_minutos': total_minutos,
+            'promedio_minutos': promedio_minutos,
+            'total_comidas': total_comidas,
+            'minutos_comida': minutos_comida,
+            'promedio_comida': promedio_comida,
+            'total_descansos_cortos': total_descansos_cortos,
+            'minutos_descanso': minutos_descanso,
+            'promedio_descanso': promedio_descanso
+        }
+          # ======= TOP USUARIOS QUE MÁS SE EXCEDEN EN TIEMPO =======
+        # Consulta simple para obtener todos los registros de la semana
         cur.execute('''
             SELECT 
                 u.nombre,
                 u.codigo,
                 u.turno,
-                COUNT(*) as total_descansos,
-                COALESCE(SUM(t.duracion_minutos), 0) as total_minutos,
-                
-                -- EXCESOS SEPARADOS POR TIPO
-                COALESCE(SUM(
-                    CASE 
-                        WHEN t.tipo = 'Comida' AND t.duracion_minutos > 40 
-                            THEN t.duracion_minutos - 40
-                        ELSE 0
-                    END
-                ), 0) as exceso_comidas,
-                
-                COALESCE(SUM(
-                    CASE 
-                        WHEN t.tipo = 'Descanso' AND t.duracion_minutos > 20 
-                            THEN t.duracion_minutos - 20
-                        ELSE 0
-                    END
-                ), 0) as exceso_descansos,
-                
-                -- TOTAL DE EXCESOS
-                COALESCE(SUM(
-                    CASE 
-                        WHEN t.tipo = 'Comida' AND t.duracion_minutos > 40 
-                            THEN t.duracion_minutos - 40
-                        WHEN t.tipo = 'Descanso' AND t.duracion_minutos > 20 
-                            THEN t.duracion_minutos - 20
-                        ELSE 0
-                    END
-                ), 0) as total_exceso,
-                
-                -- CONTADORES SEPARADOS
-                COUNT(CASE WHEN t.tipo = 'Comida' AND t.duracion_minutos > 40 THEN 1 END) as comidas_con_exceso,
-                COUNT(CASE WHEN t.tipo = 'Descanso' AND t.duracion_minutos > 20 THEN 1 END) as descansos_con_exceso,
-                
-                -- TOTALES POR TIPO
-                COUNT(CASE WHEN t.tipo = 'Comida' THEN 1 END) as total_comidas,
-                COUNT(CASE WHEN t.tipo = 'Descanso' THEN 1 END) as total_descansos_cortos,
-                COALESCE(SUM(CASE WHEN t.tipo = 'Comida' THEN t.duracion_minutos END), 0) as minutos_comida,
-                COALESCE(SUM(CASE WHEN t.tipo = 'Descanso' THEN t.duracion_minutos END), 0) as minutos_descanso
-                
+                t.tipo,
+                t.duracion_minutos,
+                t.fecha,
+                t.inicio
             FROM tiempos_descanso t
             JOIN usuarios u ON u.id = t.usuario_id
             WHERE t.fecha >= %s
-            GROUP BY u.id, u.nombre, u.codigo, u.turno
-            ORDER BY total_exceso DESC, total_descansos DESC
-            LIMIT 15
+            ORDER BY u.nombre, t.fecha DESC, t.inicio DESC
         ''', (inicio_semana,))
         
-        top_usuarios = cur.fetchall()
+        todos_registros_usuarios = cur.fetchall()
         
-        # ======= DESCANSOS POR DÍA CON SEPARACIÓN =======
+        # Procesar en Python para calcular jornadas y excesos
+        usuario_stats = {}
+        for registro in todos_registros_usuarios:
+            momento_registro = datetime.combine(registro['fecha'], registro['inicio'])
+            fecha_jornada_registro = obtener_fecha_jornada_unificada(momento_registro)
+            
+            # Solo procesar registros de esta semana de jornadas
+            if fecha_jornada_registro >= inicio_semana:
+                codigo = registro['codigo']
+                if codigo not in usuario_stats:
+                    usuario_stats[codigo] = {
+                        'nombre': registro['nombre'],
+                        'codigo': codigo,
+                        'turno': registro['turno'],
+                        'total_descansos': 0,
+                        'total_minutos': 0,
+                        'exceso_comidas': 0,
+                        'exceso_descansos': 0,
+                        'total_exceso': 0,
+                        'comidas_con_exceso': 0,
+                        'descansos_con_exceso': 0,
+                        'total_comidas': 0,
+                        'total_descansos_cortos': 0,
+                        'minutos_comida': 0,
+                        'minutos_descanso': 0
+                    }
+                
+                stats = usuario_stats[codigo]
+                stats['total_descansos'] += 1
+                stats['total_minutos'] += registro['duracion_minutos']
+                
+                if registro['tipo'] == 'Comida':
+                    stats['total_comidas'] += 1
+                    stats['minutos_comida'] += registro['duracion_minutos']
+                    if registro['duracion_minutos'] > 40:
+                        exceso = registro['duracion_minutos'] - 40
+                        stats['exceso_comidas'] += exceso
+                        stats['total_exceso'] += exceso
+                        stats['comidas_con_exceso'] += 1
+                elif registro['tipo'] == 'Descanso':
+                    stats['total_descansos_cortos'] += 1
+                    stats['minutos_descanso'] += registro['duracion_minutos']
+                    if registro['duracion_minutos'] > 20:
+                        exceso = registro['duracion_minutos'] - 20
+                        stats['exceso_descansos'] += exceso
+                        stats['total_exceso'] += exceso
+                        stats['descansos_con_exceso'] += 1
+        
+        # Convertir a lista y ordenar por total_exceso
+        top_usuarios = sorted(usuario_stats.values(), 
+                            key=lambda x: (x['total_exceso'], x['total_descansos']), 
+                            reverse=True)[:15]        # ======= DESCANSOS POR JORNADA CON SEPARACIÓN =======
+        # Consulta simple para obtener registros de la última semana
         cur.execute('''
             SELECT 
+                tipo,
+                duracion_minutos,
                 fecha,
-                -- TOTALES
-                COUNT(*) as cantidad_total,
-                COALESCE(SUM(duracion_minutos), 0) as minutos_total,
-                
-                -- COMIDAS
-                COUNT(CASE WHEN tipo = 'Comida' THEN 1 END) as cantidad_comidas,
-                COALESCE(SUM(CASE WHEN tipo = 'Comida' THEN duracion_minutos END), 0) as minutos_comidas,
-                
-                -- DESCANSOS
-                COUNT(CASE WHEN tipo = 'Descanso' THEN 1 END) as cantidad_descansos,
-                COALESCE(SUM(CASE WHEN tipo = 'Descanso' THEN duracion_minutos END), 0) as minutos_descansos
+                inicio
             FROM tiempos_descanso 
             WHERE fecha >= %s
-            GROUP BY fecha
-            ORDER BY fecha DESC
-        ''', (hoy - timedelta(days=6),))
+            ORDER BY fecha DESC, inicio DESC
+        ''', (fecha_jornada_actual - timedelta(days=6),))
         
-        descansos_por_dia = cur.fetchall()
+        registros_semana = cur.fetchall()
         
+        # Procesar en Python para agrupar por fecha de jornada
+        jornadas_stats = {}
+        for registro in registros_semana:
+            momento_registro = datetime.combine(registro['fecha'], registro['inicio'])
+            fecha_jornada_registro = obtener_fecha_jornada_unificada(momento_registro)
+            
+            if fecha_jornada_registro not in jornadas_stats:
+                jornadas_stats[fecha_jornada_registro] = {
+                    'fecha_jornada': fecha_jornada_registro,
+                    'cantidad_total': 0,
+                    'minutos_total': 0,
+                    'cantidad_comidas': 0,
+                    'minutos_comidas': 0,
+                    'cantidad_descansos': 0,
+                    'minutos_descansos': 0
+                }
+            
+            stats = jornadas_stats[fecha_jornada_registro]
+            stats['cantidad_total'] += 1
+            stats['minutos_total'] += registro['duracion_minutos']
+            
+            if registro['tipo'] == 'Comida':
+                stats['cantidad_comidas'] += 1
+                stats['minutos_comidas'] += registro['duracion_minutos']
+            elif registro['tipo'] == 'Descanso':
+                stats['cantidad_descansos'] += 1
+                stats['minutos_descansos'] += registro['duracion_minutos']
+        
+        # Convertir a lista y ordenar por fecha descendente
+        descansos_por_dia = sorted(jornadas_stats.values(), 
+                                 key=lambda x: x['fecha_jornada'], 
+                                 reverse=True)        
         return render_template('reportes.html',
                              stats_hoy=stats_hoy,
                              top_usuarios=top_usuarios,
                              descansos_por_dia=descansos_por_dia,
-                             fecha_hoy=hoy.strftime('%Y-%m-%d'))
+                             fecha_hoy=fecha_jornada_actual.strftime('%Y-%m-%d'))
         
     except Exception as e:
         logger.error(f"Error en reportes: {e}")

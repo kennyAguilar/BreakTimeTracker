@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="300">
   <title>Registros - BreakTime Tracker</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
@@ -37,76 +38,133 @@
   </div>
 
   <main class="container mx-auto px-4 py-8">
-    
-    <!-- SECCIÓN DE FILTROS -->
+      <!-- SECCIÓN DE FILTROS MEJORADOS PARA JORNADAS -->
     <section class="bg-gray-800 p-6 rounded-lg mb-6">
-      <h2 class="text-lg font-bold mb-4">🔍 Filtros de Búsqueda</h2>
+      <h2 class="text-lg font-bold mb-4">🌙 Filtros por Jornadas Nocturnas</h2>
       
-      <form method="GET" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- FECHA INICIO -->
-        <div>
-          <label class="block text-sm font-medium mb-2">Fecha Inicio:</label>
-          <input 
-            type="date" 
-            name="fecha_inicio" 
-            value="{{ filtros.fecha_inicio or '' }}"
-            class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
-            title="Selecciona la fecha de inicio"
-            placeholder="Fecha de inicio"
-          />
-        </div>
+      <form method="GET" class="space-y-4">
         
-        <!-- FECHA FIN -->
-        <div>
-          <label class="block text-sm font-medium mb-2">Fecha Fin:</label>
-          <input 
-            type="date" 
-            name="fecha_fin" 
-            value="{{ filtros.fecha_fin or '' }}"
-            class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
-            title="Selecciona la fecha de fin"
-            placeholder="Fecha de fin"
-          />
-        </div>
-        
-        <!-- USUARIO -->
-        <div>
-          <label for="usuario-select" class="block text-sm font-medium mb-2">Usuario:</label>
-          <select id="usuario-select" name="usuario" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
-            <option value="">Todos los usuarios</option>
-            {% for usuario in usuarios_disponibles %}
-            <option value="{{ usuario.nombre }}" {% if filtros.usuario == usuario.nombre %}selected{% endif %}>
-              {{ usuario.nombre }}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-        
-        <!-- TIPO -->
-        <div>
-          <label class="block text-sm font-medium mb-2">Tipo:</label>
-          <select name="tipo" title="Tipo de descanso" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
-            <option value="">Todos los tipos</option>
-            <option value="Comida" {% if filtros.tipo == 'Comida' %}selected{% endif %}>Comida</option>
-            <option value="Descanso" {% if filtros.tipo == 'Descanso' %}selected{% endif %}>Descanso</option>
-          </select>
-        </div>
-        
-        <!-- BOTONES -->
-        <div class="lg:col-span-4 flex gap-2">
-          <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded">
-            🔍 Filtrar
+        <!-- FILTROS RÁPIDOS -->
+        <div class="bg-gray-700 p-4 rounded-lg">
+          <label class="block text-sm font-medium mb-2">⚡ Filtros Rápidos:</label>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <button type="submit" name="filtro_rapido" value="hoy" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm
+                    {% if filtros.filtro_rapido == 'hoy' %}ring-2 ring-yellow-400{% endif %}">
+              🌙 Jornada Actual
+            </button>
+            <button type="submit" name="filtro_rapido" value="ayer" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm
+                    {% if filtros.filtro_rapido == 'ayer' %}ring-2 ring-yellow-400{% endif %}">
+              📅 Jornada Anterior
+            </button>
+            <button type="submit" name="filtro_rapido" value="semana" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm
+                    {% if filtros.filtro_rapido == 'semana' %}ring-2 ring-yellow-400{% endif %}">
+              📊 Esta Semana
+            </button>
+            <button type="submit" name="filtro_rapido" value="mes" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm
+                    {% if filtros.filtro_rapido == 'mes' %}ring-2 ring-yellow-400{% endif %}">
+              📈 Este Mes
+            </button>
+          </div>
+          <button type="submit" 
+                  class="mt-2 bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">
+            🔄 Limpiar Filtros
           </button>
-          <a href="/registros" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded">
-            🔄 Limpiar
-          </a>
-          <a href="/exportar_csv?{{ request.query_string.decode() }}" 
-             class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded">
-            📥 Exportar CSV
-          </a>
         </div>
-      </form>
+
+        <!-- FILTROS PERSONALIZADOS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- JORNADA INICIO -->
+          <div>
+            <label class="block text-sm font-medium mb-2">🌅 Jornada Desde:</label>
+            <input 
+              type="date" 
+              name="jornada_inicio" 
+              value="{{ filtros.jornada_inicio or '' }}"
+              class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+              title="Fecha de jornada de inicio (considera cruces de medianoche)"
+              placeholder="Jornada inicio"
+            />
+            <small class="text-gray-400 text-xs">Fecha de jornada unificada</small>
+          </div>
+          
+          <!-- JORNADA FIN -->
+          <div>
+            <label class="block text-sm font-medium mb-2">🌄 Jornada Hasta:</label>
+            <input 
+              type="date" 
+              name="jornada_fin" 
+              value="{{ filtros.jornada_fin or '' }}"
+              class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white"
+              title="Fecha de jornada de fin (considera cruces de medianoche)"
+              placeholder="Jornada fin"
+            />
+            <small class="text-gray-400 text-xs">Agrupa empleados nocturnos</small>
+          </div>
+          
+          <!-- USUARIO -->
+          <div>
+            <label for="usuario-select" class="block text-sm font-medium mb-2">👤 Usuario:</label>
+            <select id="usuario-select" name="usuario" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
+              <option value="">Todos los usuarios</option>
+              {% for usuario in usuarios_disponibles %}
+              <option value="{{ usuario.nombre }}" {% if filtros.usuario == usuario.nombre %}selected{% endif %}>
+                {{ usuario.nombre }}
+              </option>
+              {% endfor %}          </select>
+          </div>
+          
+          <!-- TIPO -->
+          <div>
+            <label for="tipo-select" class="block text-sm font-medium mb-2">🎯 Tipo de Descanso:</label>
+            <select id="tipo-select" name="tipo" class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
+              <option value="">Todos los tipos</option>
+              <option value="Comida" {% if filtros.tipo == 'Comida' %}selected{% endif %}>🍽️ Comida</option>
+              <option value="Descanso" {% if filtros.tipo == 'Descanso' %}selected{% endif %}>☕ Descanso</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- BOTÓN APLICAR FILTROS -->
+        <div class="flex justify-between items-center">
+          <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-medium">
+            🔍 Aplicar Filtros Personalizados
+          </button>
+          
+          <div class="text-sm text-gray-400">
+            💡 Los filtros consideran jornadas nocturnas de 21h (09:00-06:00)
+          </div>
+        </div>      </form>
     </section>
+
+    <!-- INDICADOR DE FILTROS ACTIVOS -->
+    {% if filtros.jornada_inicio or filtros.jornada_fin or filtros.usuario or filtros.tipo or filtros.filtro_rapido %}
+    <section class="bg-blue-900 border border-blue-600 p-4 rounded-lg mb-6">
+      <h3 class="text-sm font-bold mb-2">✅ Filtros Activos:</h3>
+      <div class="flex flex-wrap gap-2 text-sm">
+        {% if filtros.filtro_rapido %}
+        <span class="bg-blue-600 px-2 py-1 rounded">
+          ⚡ {{ {'hoy': 'Jornada Actual', 'ayer': 'Jornada Anterior', 'semana': 'Esta Semana', 'mes': 'Este Mes'}[filtros.filtro_rapido] }}
+        </span>
+        {% endif %}
+        {% if filtros.jornada_inicio %}
+        <span class="bg-purple-600 px-2 py-1 rounded">🌅 Desde: {{ filtros.jornada_inicio }}</span>
+        {% endif %}
+        {% if filtros.jornada_fin %}
+        <span class="bg-purple-600 px-2 py-1 rounded">🌄 Hasta: {{ filtros.jornada_fin }}</span>
+        {% endif %}
+        {% if filtros.usuario %}
+        <span class="bg-green-600 px-2 py-1 rounded">👤 {{ filtros.usuario }}</span>
+        {% endif %}
+        {% if filtros.tipo %}
+        <span class="bg-orange-600 px-2 py-1 rounded">🎯 {{ filtros.tipo }}</span>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
 
     <!-- ESTADÍSTICAS -->
     {% if estadisticas.total_registros > 0 %}
