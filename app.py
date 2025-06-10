@@ -16,6 +16,7 @@ from dotenv import load_dotenv  # Para leer configuraciones secretas
 import logging  # Para guardar registros de lo que pasa en la app
 import csv  # Para crear archivos CSV
 from io import StringIO  # Para manejar texto en memoria
+from functools import lru_cache  # Para caching de funciones
 
 # CONFIGURACIÓN INICIAL - Como preparar todo antes de empezar
 logging.basicConfig(level=logging.INFO)  # Activar el sistema de registros
@@ -67,22 +68,41 @@ def get_db():
         logger.error(f"Error conectando a la base de datos: {e}")
         raise  # Lanzar el error para que otros lo sepan
 
-# FUNCIÓN PARA VALIDAR TARJETAS
+# OPTIMIZACIÓN: Cache para consultas frecuentes de usuarios
+@lru_cache(maxsize=100)
+def obtener_usuario_por_codigo(codigo):
+    """Cache de usuarios por código para evitar consultas repetidas"""
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute('SELECT * FROM usuarios WHERE UPPER(codigo) = %s', (codigo.upper(),))
+    usuario = cur.fetchone()
+    conn.close()
+    return dict(usuario) if usuario else None
+
+# FUNCIÓN MEJORADA PARA VALIDAR TARJETAS CON MÁS ROBUSTEZ
 def validar_tarjeta(tarjeta_raw):
     """
-    Como un guardia de seguridad que revisa si una tarjeta es válida.
-    Limpia la tarjeta de caracteres raros y verifica que sea lo suficientemente larga.
+    Validador robusto de tarjetas RFID con múltiples verificaciones
+    Detecta automáticamente formato y limpia caracteres especiales
     """
-    if not tarjeta_raw:  # Si no hay tarjeta, rechazar
+    if not tarjeta_raw:
         return None
     
-    # Limpiar la tarjeta: quitar espacios y caracteres extraños como ; y ?
-    tarjeta = tarjeta_raw.strip().replace(';', '').replace('?', '')
+    # Limpiar caracteres especiales comunes
+    tarjeta = tarjeta_raw.strip()
+    caracteres_especiales = [';', '?', '\n', '\r', '\t']
+    for char in caracteres_especiales:
+        tarjeta = tarjeta.replace(char, '')
     
-    if len(tarjeta) < 3:  # Si la tarjeta es muy corta (menos de 3 caracteres), rechazar
+    # Validar longitud mínima
+    if len(tarjeta) < 3:
         return None
     
-    return tarjeta  # Devolver la tarjeta limpia y válida
+    # Validar que contenga al menos algunos números o letras
+    if not any(c.isalnum() for c in tarjeta):
+        return None
+    
+    return tarjeta.upper()  # Normalizar a mayúsculas
 
 def limpiar_tarjeta(tarjeta_raw):
     """
