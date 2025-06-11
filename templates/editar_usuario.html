@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="300">
   <title>Editar Usuario - BreakTime Tracker</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
@@ -14,10 +13,9 @@
     <div class="mb-4 sm:mb-0 text-center sm:text-left">
       <h1 class="text-xl sm:text-2xl font-bold">✏️ Editar Usuario</h1>
       <p class="text-xs sm:text-sm text-gray-300">Modificar información del asistente</p>
-    </div>
-    <nav class="flex flex-wrap justify-center gap-2">
-      <a href="/base_datos" class="bg-blue-600 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">← Volver a Base de Datos</a>
-      <a href="/" class="bg-gray-700 hover:bg-gray-600 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">Inicio</a>
+    </div>    <nav class="flex flex-wrap justify-center gap-2">
+      <a href="{{ url_for('base_datos') }}" class="bg-blue-600 hover:bg-blue-700 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">← Volver a Base de Datos</a>
+      <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 px-3 sm:px-4 py-2 rounded text-sm sm:text-base">🚪 Salir</a>
     </nav>
   </header>
 
@@ -104,9 +102,8 @@
           >
             ✅ Guardar Cambios
           </button>
-          
-          <a 
-            href="/base_datos" 
+            <a 
+            href="{{ url_for('base_datos') }}" 
             class="bg-gray-600 hover:bg-gray-700 px-6 py-3 rounded-lg font-semibold text-white shadow-lg text-center transition-colors"
           >
             ❌ Cancelar
